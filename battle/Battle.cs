@@ -70,6 +70,8 @@ public class Battle
         sendDataCallBack = _sendDataCallBack;
 
         uid = commandID = roundNum = 1;
+
+        InitSimulator();
     }
 
     public void ClientStart(Action<MemoryStream> _sendDataCallBack, Action _updateCallBack)
@@ -77,6 +79,8 @@ public class Battle
         sendDataCallBack = _sendDataCallBack;
 
         updateCallBack = _updateCallBack;
+
+        InitSimulator();
     }
 
     private void InitSimulator()
@@ -205,6 +209,24 @@ public class Battle
         if (roundNum % gameConfig.GetSpawnStep() == 0)
         {
             Spawn();
+        }
+
+        {
+            Dictionary<int, Unit>.ValueCollection.Enumerator enumerator = unitDic.Values.GetEnumerator();
+
+            while (enumerator.MoveNext())
+            {
+                Unit unit = enumerator.Current;
+
+                if (unit.isMine)
+                {
+                    unit.prefVelocity = new Vector2(1000, 0);
+                }
+                else
+                {
+                    unit.prefVelocity = new Vector2(-1000, 0);
+                }
+            }
         }
 
         for (int i = 0; i < gameConfig.GetMoveTimes() - 1; i++)
@@ -653,6 +675,36 @@ public class Battle
                 int id = _br.ReadInt32();
 
                 tmpDic.Add(tmpCommandID, new CommandData(isMine, id));
+            }
+        }
+    }
+
+    public void ClientSendCommand(bool _isMine,int _id)
+    {
+        using (MemoryStream ms = new MemoryStream())
+        {
+            using (BinaryWriter bw = new BinaryWriter(ms))
+            {
+                bw.Write((int)C2SCommand.ACTION);
+
+                bw.Write(_isMine);
+
+                bw.Write(_id);
+
+                sendDataCallBack(ms);
+            }
+        }
+    }
+
+    public void ClientRequestRefresh()
+    {
+        using (MemoryStream ms = new MemoryStream())
+        {
+            using (BinaryWriter bw = new BinaryWriter(ms))
+            {
+                bw.Write((int)C2SCommand.REFRESH);
+
+                sendDataCallBack(ms);
             }
         }
     }
