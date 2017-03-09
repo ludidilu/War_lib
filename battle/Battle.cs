@@ -3,23 +3,16 @@ using System.Collections.Generic;
 using RVO;
 using System.IO;
 
-class PoolUnit
-{
-    internal double queuePos;
-    internal int id;
-    internal int num;
-
-    internal PoolUnit(double _queuePos, int _id, int _num)
-    {
-        queuePos = _queuePos;
-        id = _id;
-        num = _num;
-    }
-}
-
 class CommandData
 {
+    public bool isMine;
+    public int id;
 
+    public CommandData(bool _isMine, int _id)
+    {
+        isMine = _isMine;
+        id = _id;
+    }
 }
 
 enum C2SCommand
@@ -32,11 +25,12 @@ enum S2CCommand
 {
     REFRESH,
     UPDATE,
+    ACTION_OK
 }
 
 public class Battle
 {
-    private static Func<int, IUnitSDS> getUnitCallBack;
+    internal static Func<int, IUnitSDS> getUnitCallBack;
 
     private static IGameConfig gameConfig;
 
@@ -44,13 +38,15 @@ public class Battle
 
     public Dictionary<int, Unit> unitDic = new Dictionary<int, Unit>();
 
-    private Dictionary<int, PoolUnit> mPoolDic = new Dictionary<int, PoolUnit>();
+    private Dictionary<int, int> mPoolDic = new Dictionary<int, int>();
 
-    private Dictionary<int, PoolUnit> oPoolDic = new Dictionary<int, PoolUnit>();
+    private Dictionary<int, int> oPoolDic = new Dictionary<int, int>();
 
     private Dictionary<int, Dictionary<int, CommandData>> commandPool = new Dictionary<int, Dictionary<int, CommandData>>();
 
     private int uid;
+
+    private int commandID;
 
     private Simulator simulator;
 
@@ -73,7 +69,7 @@ public class Battle
     {
         sendDataCallBack = _sendDataCallBack;
 
-        roundNum = 1;
+        uid = commandID = roundNum = 1;
     }
 
     public void ClientStart(Action<MemoryStream> _sendDataCallBack, Action _updateCallBack)
@@ -104,57 +100,61 @@ public class Battle
     {
         IUnitSDS sds = getUnitCallBack(_id);
 
-        Dictionary<int, PoolUnit> pool = _isMine ? mPoolDic : oPoolDic;
+        Dictionary<int, int> pool = _isMine ? mPoolDic : oPoolDic;
 
         if (pool.ContainsKey(_id))
         {
-            PoolUnit unit = pool[_id];
-
-            unit.num++;
+            pool[_id]++;
         }
         else
         {
-            PoolUnit unit = new PoolUnit(sds.GetQueuePos(), _id, 1);
-
-            pool.Add(_id, unit);
+            pool.Add(_id, 1);
         }
     }
 
     private void Spawn()
     {
-        Dictionary<int, PoolUnit>.ValueCollection.Enumerator enumerator = mPoolDic.Values.GetEnumerator();
+        Dictionary<int, int>.Enumerator enumerator = mPoolDic.GetEnumerator();
 
         while (enumerator.MoveNext())
         {
-            PoolUnit unit = enumerator.Current;
+            int id = enumerator.Current.Key;
 
-            for (int i = 0; i < unit.num; i++)
+            int num = enumerator.Current.Value;
+
+            IUnitSDS sds = getUnitCallBack(id);
+
+            for (int i = 0; i < num; i++)
             {
-                double posX = -70 + unit.queuePos;
+                double posX = -70 + sds.GetQueuePos();
 
                 double posY = (i % 2 == 0 ? 1 : -1) * i * 0.1;
 
                 Vector2 pos = new Vector2(posX, posY);
 
-                AddUnitToBattle(true, unit.id, pos);
+                AddUnitToBattle(true, id, pos);
             }
         }
 
-        enumerator = oPoolDic.Values.GetEnumerator();
+        enumerator = oPoolDic.GetEnumerator();
 
         while (enumerator.MoveNext())
         {
-            PoolUnit unit = enumerator.Current;
+            int id = enumerator.Current.Key;
 
-            for (int i = 0; i < unit.num; i++)
+            int num = enumerator.Current.Value;
+
+            IUnitSDS sds = getUnitCallBack(id);
+
+            for (int i = 0; i < num; i++)
             {
-                double posX = 70 - unit.queuePos;
+                double posX = 70 - sds.GetQueuePos();
 
                 double posY = (i % 2 == 0 ? 1 : -1) * i * 0.1;
 
                 Vector2 pos = new Vector2(posX, posY);
 
-                AddUnitToBattle(false, unit.id, pos);
+                AddUnitToBattle(false, id, pos);
             }
         }
     }
@@ -172,9 +172,17 @@ public class Battle
 
     public void Update()
     {
+        MemoryStream ms = null;
+
+        BinaryWriter bw = null;
+
         if (updateCallBack == null)
         {
-            //server send commandData to client 
+            ms = new MemoryStream();
+
+            bw = new BinaryWriter(ms);
+
+            ServerUpdate(bw);
         }
 
         //do command
@@ -235,23 +243,87 @@ public class Battle
         }
         else
         {
+            bw.Write(result);
+
+            sendDataCallBack(ms);
+
+            ms.Dispose();
+
+            bw.Close();
             //server send result to client 
         }
 
         roundNum++;
     }
 
-    private void ClientUpdate(int _serverRoundNum, Dictionary<int, CommandData> _commandData, double _serverResult)
+    private void ServerUpdate(BinaryWriter _bw)
     {
-        if (serverRoundNum != _serverRoundNum)
+        _bw.Write((int)S2CCommand.UPDATE);
+
+        _bw.Write(roundNum);
+
+        int tmpRoundNum = roundNum + gameConfig.GetCommandDelay();
+
+        if (commandPool.ContainsKey(tmpRoundNum))
         {
-            if (_serverRoundNum == serverRoundNum + 1)
+            Dictionary<int, CommandData> tmpDic = commandPool[tmpRoundNum];
+
+            _bw.Write(tmpDic.Count);
+
+            Dictionary<int, CommandData>.Enumerator enumerator = tmpDic.GetEnumerator();
+
+            while (enumerator.MoveNext())
             {
-                serverRoundNum = _serverRoundNum;
+                _bw.Write(enumerator.Current.Key);
+
+                CommandData data = enumerator.Current.Value;
+
+                _bw.Write(data.isMine);
+
+                _bw.Write(data.id);
+            }
+        }
+        else
+        {
+            _bw.Write(0);
+        }
+    }
+
+    private void ClientUpdate(BinaryReader _br)
+    {
+        int tmpServerRoundNum = _br.ReadInt32();
+
+        int num = _br.ReadInt32();
+
+        Dictionary<int, CommandData> commandData = null;
+
+        if (num > 0)
+        {
+            commandData = new Dictionary<int, CommandData>();
+
+            for (int i = 0; i < num; i++)
+            {
+                int tmpCommandID = _br.ReadInt32();
+
+                bool isMine = _br.ReadBoolean();
+
+                int id = _br.ReadInt32();
+
+                commandData.Add(tmpCommandID, new CommandData(isMine, id));
+            }
+        }
+
+        double serverResult = _br.ReadDouble();
+
+        if (serverRoundNum != tmpServerRoundNum)
+        {
+            if (tmpServerRoundNum == serverRoundNum + 1)
+            {
+                serverRoundNum = tmpServerRoundNum;
             }
             else
             {
-                Log.Write("我上次收到服务器的同步包回合数是:" + serverRoundNum + "  这次收到服务器的同步包回合数是:" + _serverRoundNum);
+                Log.Write("我上次收到服务器的同步包回合数是:" + serverRoundNum + "  这次收到服务器的同步包回合数是:" + tmpServerRoundNum);
 
                 int[] op = new int[0];
 
@@ -276,7 +348,7 @@ public class Battle
         {
             if (roundDiff > gameConfig.GetCommandDelay())
             {
-                if (_commandData != null)
+                if (commandData != null)
                 {
                     Log.Write("myRound:" + roundNum + "  serverRound:" + serverRoundNum + "  我日   延迟已经" + roundDiff + "回合了  而且还有玩家操作  没救了  让服务器重新刷数据吧" + "  roundDiff:" + roundDiff);
 
@@ -291,13 +363,13 @@ public class Battle
             }
         }
 
-        if (_commandData != null)
+        if (commandData != null)
         {
-            Dictionary<int, CommandData>.Enumerator enumerator = _commandData.GetEnumerator();
+            Dictionary<int, CommandData>.Enumerator enumerator = commandData.GetEnumerator();
 
             while (enumerator.MoveNext())
             {
-                ReceiveCommand(enumerator.Current.Key, enumerator.Current.Value);
+                ReceiveCommand(serverRoundNum + gameConfig.GetCommandDelay(), enumerator.Current.Key, enumerator.Current.Value);
             }
         }
 
@@ -305,9 +377,9 @@ public class Battle
         {
             double myResult = resultDic[serverRoundNum];
 
-            if (!myResult.ToString("F4").Equals(_serverResult.ToString("F4")))
+            if (!myResult.ToString("F4").Equals(serverResult.ToString("F4")))
             {
-                throw new Exception("myRound:" + roundNum + "  serverRound:" + serverRoundNum + "  抓住你了!!!   myResult:" + myResult + "  serverResult:" + _serverResult + "  roundDiff:" + roundDiff);
+                throw new Exception("myRound:" + roundNum + "  serverRound:" + serverRoundNum + "  抓住你了!!!   myResult:" + myResult + "  serverResult:" + serverResult + "  roundDiff:" + roundDiff);
             }
             else
             {
@@ -316,25 +388,23 @@ public class Battle
         }
         else
         {
-            resultDic.Add(serverRoundNum, _serverResult);
+            resultDic.Add(serverRoundNum, serverResult);
         }
     }
 
-    private void ReceiveCommand(int _commandID, CommandData _commandData)
+    private void ReceiveCommand(int _roundNum, int _commandID, CommandData _commandData)
     {
-        int tmpRound = roundNum + gameConfig.GetCommandDelay();
-
         Dictionary<int, CommandData> tmpDic;
 
-        if (commandPool.ContainsKey(tmpRound))
+        if (commandPool.ContainsKey(_roundNum))
         {
-            tmpDic = commandPool[tmpRound];
+            tmpDic = commandPool[_roundNum];
         }
         else
         {
             tmpDic = new Dictionary<int, CommandData>();
 
-            commandPool[tmpRound] = tmpDic;
+            commandPool[_roundNum] = tmpDic;
         }
 
         if (!tmpDic.ContainsKey(_commandID))
@@ -345,13 +415,19 @@ public class Battle
 
     private void DoCommand(CommandData _commandData)
     {
-
+        AddUnitToPool(_commandData.isMine, _commandData.id);
     }
 
     private int GetUid()
     {
         uid++;
         return uid;
+    }
+
+    private int GetCommandID()
+    {
+        commandID++;
+        return commandID;
     }
 
     public void ServerGetBytes(byte[] _bytes)
@@ -366,15 +442,113 @@ public class Battle
                 {
                     case C2SCommand.REFRESH:
 
-
+                        ServerRefresh();
 
                         break;
 
                     case C2SCommand.ACTION:
 
+                        ServerReceiveCommand(br);
 
                         break;
                 }
+            }
+        }
+    }
+
+    private void ServerRefresh()
+    {
+        using (MemoryStream ms = new MemoryStream())
+        {
+            using (BinaryWriter bw = new BinaryWriter(ms))
+            {
+                bw.Write((int)S2CCommand.REFRESH);
+
+                bw.Write(roundNum);
+
+                bw.Write(uid);
+
+                bw.Write(unitDic.Count);
+
+                Dictionary<int, Unit>.ValueCollection.Enumerator enumerator = unitDic.Values.GetEnumerator();
+
+                while (enumerator.MoveNext())
+                {
+                    Unit unit = enumerator.Current;
+
+                    unit.WriteData(bw);
+                }
+
+                bw.Write(mPoolDic.Count);
+
+                Dictionary<int, int>.Enumerator enumerator2 = mPoolDic.GetEnumerator();
+
+                while (enumerator2.MoveNext())
+                {
+                    bw.Write(enumerator2.Current.Key);
+
+                    bw.Write(enumerator2.Current.Value);
+                }
+
+                bw.Write(oPoolDic.Count);
+
+                enumerator2 = oPoolDic.GetEnumerator();
+
+                while (enumerator2.MoveNext())
+                {
+                    bw.Write(enumerator2.Current.Key);
+
+                    bw.Write(enumerator2.Current.Value);
+                }
+
+                bw.Write(commandPool.Count);
+
+                Dictionary<int, Dictionary<int, CommandData>>.Enumerator enumerator3 = commandPool.GetEnumerator();
+
+                while (enumerator3.MoveNext())
+                {
+                    bw.Write(enumerator3.Current.Key);
+
+                    Dictionary<int, CommandData> tmpDic = enumerator3.Current.Value;
+
+                    bw.Write(tmpDic.Count);
+
+                    Dictionary<int, CommandData>.Enumerator enumerator4 = tmpDic.GetEnumerator();
+
+                    while (enumerator4.MoveNext())
+                    {
+                        bw.Write(enumerator4.Current.Key);
+
+                        CommandData data = enumerator4.Current.Value;
+
+                        bw.Write(data.isMine);
+
+                        bw.Write(data.id);
+                    }
+                }
+
+                sendDataCallBack(ms);
+            }
+        }
+    }
+
+    private void ServerReceiveCommand(BinaryReader _br)
+    {
+        bool isMine = _br.ReadBoolean();
+
+        int id = _br.ReadInt32();
+
+        CommandData data = new CommandData(isMine, id);
+
+        ReceiveCommand(roundNum + gameConfig.GetCommandDelay(), GetCommandID(), data);
+
+        using (MemoryStream ms = new MemoryStream())
+        {
+            using (BinaryWriter bw = new BinaryWriter(ms))
+            {
+                bw.Write((int)S2CCommand.ACTION_OK);
+
+                sendDataCallBack(ms);
             }
         }
     }
@@ -391,15 +565,94 @@ public class Battle
                 {
                     case S2CCommand.REFRESH:
 
-
+                        ClientRefreshData(br);
 
                         break;
 
                     case S2CCommand.UPDATE:
 
+                        ClientUpdate(br);
+
+                        break;
+
+                    case S2CCommand.ACTION_OK:
+
+
 
                         break;
                 }
+            }
+        }
+    }
+
+    private void ClientRefreshData(BinaryReader _br)
+    {
+        unitDic.Clear();
+
+        mPoolDic.Clear();
+
+        oPoolDic.Clear();
+
+        commandPool.Clear();
+
+        roundNum = _br.ReadInt32();
+
+        uid = _br.ReadInt32();
+
+        int num = _br.ReadInt32();
+
+        for (int i = 0; i < num; i++)
+        {
+            Unit unit = new Unit();
+
+            unit.Init(this, simulator, _br);
+
+            unitDic.Add(unit.uid, unit);
+        }
+
+        num = _br.ReadInt32();
+
+        for (int i = 0; i < num; i++)
+        {
+            int id = _br.ReadInt32();
+
+            int num2 = _br.ReadInt32();
+
+            mPoolDic.Add(id, num2);
+        }
+
+        num = _br.ReadInt32();
+
+        for (int i = 0; i < num; i++)
+        {
+            int id = _br.ReadInt32();
+
+            int num2 = _br.ReadInt32();
+
+            oPoolDic.Add(id, num2);
+        }
+
+        num = _br.ReadInt32();
+
+        for (int i = 0; i < num; i++)
+        {
+            int tmpRoundNum = _br.ReadInt32();
+
+            int num2 = _br.ReadInt32();
+
+            Dictionary<int, CommandData> tmpDic = new Dictionary<int, CommandData>();
+
+            commandPool.Add(tmpRoundNum, tmpDic);
+
+            for (int m = 0; m < num2; m++)
+            {
+                int tmpCommandID = _br.ReadInt32();
+
+                bool isMine = _br.ReadBoolean();
+
+                int id = _br.ReadInt32();
+
+                tmpDic.Add(tmpCommandID, new CommandData(isMine, id));
             }
         }
     }
