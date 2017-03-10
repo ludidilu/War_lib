@@ -17,7 +17,7 @@ public class Unit
 
     public Vector2 pos
     {
-        set
+        private set
         {
             simulator.setAgentPosition(uid, value);
         }
@@ -30,7 +30,7 @@ public class Unit
 
     public Vector2 velocity
     {
-        set
+        private set
         {
             simulator.setAgentVelocity(uid, value);
         }
@@ -43,7 +43,7 @@ public class Unit
 
     public Vector2 prefVelocity
     {
-        set
+        private set
         {
             simulator.setAgentPrefVelocity(uid, value);
         }
@@ -54,6 +54,12 @@ public class Unit
         }
     }
 
+    public int nowHp { private set; get; }
+
+    public double attackStep { private set; get; }
+
+    public int targetUid { private set; get; }
+
     internal void Init(Battle _battle, Simulator _simulator, bool _isMine, int _uid, int _id, IUnitSDS _sds, Vector2 _pos)
     {
         battle = _battle;
@@ -62,6 +68,9 @@ public class Unit
         uid = _uid;
         id = _id;
         sds = _sds;
+        nowHp = sds.GetHp();
+        attackStep = 0;
+        targetUid = -1;
 
         simulator.addAgent(uid, _pos);
         simulator.setAgentIsMine(uid, isMine);
@@ -70,7 +79,7 @@ public class Unit
         simulator.setAgentWeight(uid, sds.GetWeight());
     }
 
-    internal void Init(Battle _battle,Simulator _simulator,BinaryReader _br)
+    internal void Init(Battle _battle, Simulator _simulator, BinaryReader _br)
     {
         battle = _battle;
         simulator = _simulator;
@@ -104,11 +113,12 @@ public class Unit
         y = _br.ReadDouble();
 
         prefVelocity = new Vector2(x, y);
-    }
 
-    public void SetTargetPos(Vector2 _targetPos)
-    {
-        prefVelocity = _targetPos - pos;
+        nowHp = _br.ReadInt32();
+
+        attackStep = _br.ReadDouble();
+
+        targetUid = _br.ReadInt32();
     }
 
     internal void WriteData(BinaryWriter _bw)
@@ -130,5 +140,76 @@ public class Unit
         _bw.Write(prefVelocity.x);
 
         _bw.Write(prefVelocity.y);
+
+        _bw.Write(nowHp);
+
+        _bw.Write(attackStep);
+
+        _bw.Write(targetUid);
+    }
+
+    internal void BeDamage(int _damage)
+    {
+        nowHp -= _damage;
+    }
+
+    internal void Update()
+    {
+        if (attackStep > 0)
+        {
+            attackStep -= Battle.gameConfig.GetTimeStep();
+
+            if (attackStep < 0)
+            {
+                attackStep = 0;
+            }
+        }
+
+        if (targetUid != -1)
+        {
+            if (battle.unitDic.ContainsKey(targetUid))
+            {
+                Unit targetUnit = battle.unitDic[targetUid];
+
+                if (targetUnit.nowHp > 0)
+                {
+                    if (Vector2.Distance(targetUnit.pos, pos) < sds.GetAttackRange())
+                    {
+                        if (attackStep == 0)
+                        {
+                            attackStep = sds.GetAttackStep();
+
+                            targetUnit.BeDamage(sds.GetAttackDamage());
+                        }
+
+                        return;
+                    }
+                }
+                else
+                {
+                    targetUid = -1;
+                }
+            }
+            else
+            {
+                targetUid = -1;
+            }
+        }
+
+        //simulator.getNearestAgent
+
+        if (isMine)
+        {
+            prefVelocity = new Vector2(1000, 0);
+        }
+        else
+        {
+            prefVelocity = new Vector2(-1000, 0);
+        }
+    }
+
+    internal void Die()
+    {
+        simulator.delAgent(uid);
     }
 }

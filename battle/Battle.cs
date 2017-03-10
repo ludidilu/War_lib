@@ -32,11 +32,13 @@ public class Battle
 {
     internal static Func<int, IUnitSDS> getUnitCallBack;
 
-    private static IGameConfig gameConfig;
+    internal static IGameConfig gameConfig;
 
     private Action<MemoryStream> sendDataCallBack;
 
     public Dictionary<int, Unit> unitDic = new Dictionary<int, Unit>();
+
+    public LinkedList<Unit> unitList = new LinkedList<Unit>();
 
     private Dictionary<int, int> mPoolDic = new Dictionary<int, int>();
 
@@ -169,7 +171,9 @@ public class Battle
 
         unit.Init(this, simulator, _isMine, GetUid(), _id, getUnitCallBack(_id), _pos);
 
-        unitDic[unit.uid] = unit;
+        unitDic.Add(unit.uid, unit);
+
+        unitList.AddLast(unit);
 
         return unit;
     }
@@ -212,19 +216,32 @@ public class Battle
         }
 
         {
-            Dictionary<int, Unit>.ValueCollection.Enumerator enumerator = unitDic.Values.GetEnumerator();
+            LinkedList<Unit>.Enumerator enumerator = unitList.GetEnumerator();
 
             while (enumerator.MoveNext())
             {
                 Unit unit = enumerator.Current;
 
-                if (unit.isMine)
+                unit.Update();
+            }
+
+            LinkedListNode<Unit> node = unitList.First;
+
+            while (node != null)
+            {
+                LinkedListNode<Unit> tmpNode = node;
+
+                node = node.Next;
+
+                Unit unit = tmpNode.Value;
+
+                if (unit.nowHp < 1)
                 {
-                    unit.prefVelocity = new Vector2(1000, 0);
-                }
-                else
-                {
-                    unit.prefVelocity = new Vector2(-1000, 0);
+                    unit.Die();
+
+                    unitList.Remove(tmpNode);
+
+                    unitDic.Remove(unit.uid);
                 }
             }
         }
@@ -247,7 +264,7 @@ public class Battle
             {
                 double serverResult = resultDic[roundNum];
 
-                if (!result.ToString("F4").Equals(serverResult.ToString("F4")))
+                if (Math.Round(result, 2) != Math.Round(serverResult, 2))
                 {
                     throw new Exception("我就日了  myRound:" + roundNum + "  serverRound:" + serverRoundNum + "    myResult:" + result + "  serverResult:" + serverResult);
                 }
@@ -399,7 +416,7 @@ public class Battle
         {
             double myResult = resultDic[serverRoundNum];
 
-            if (!myResult.ToString("F4").Equals(serverResult.ToString("F4")))
+            if (Math.Round(myResult, 2) != Math.Round(serverResult, 2))
             {
                 throw new Exception("myRound:" + roundNum + "  serverRound:" + serverRoundNum + "  抓住你了!!!   myResult:" + myResult + "  serverResult:" + serverResult + "  roundDiff:" + roundDiff);
             }
@@ -490,9 +507,9 @@ public class Battle
 
                 bw.Write(uid);
 
-                bw.Write(unitDic.Count);
+                bw.Write(unitList.Count);
 
-                Dictionary<int, Unit>.ValueCollection.Enumerator enumerator = unitDic.Values.GetEnumerator();
+                LinkedList<Unit>.Enumerator enumerator = unitList.GetEnumerator();
 
                 while (enumerator.MoveNext())
                 {
@@ -611,6 +628,8 @@ public class Battle
     {
         unitDic.Clear();
 
+        unitList.Clear();
+
         mPoolDic.Clear();
 
         oPoolDic.Clear();
@@ -630,6 +649,8 @@ public class Battle
             unit.Init(this, simulator, _br);
 
             unitDic.Add(unit.uid, unit);
+
+            unitList.AddLast(unit);
         }
 
         num = _br.ReadInt32();
@@ -679,7 +700,7 @@ public class Battle
         }
     }
 
-    public void ClientSendCommand(bool _isMine,int _id)
+    public void ClientSendCommand(bool _isMine, int _id)
     {
         using (MemoryStream ms = new MemoryStream())
         {
