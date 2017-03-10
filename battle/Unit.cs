@@ -186,6 +186,10 @@ public class Unit
 
                         return;
                     }
+                    else
+                    {
+                        targetUid = -1;
+                    }
                 }
                 else
                 {
@@ -208,7 +212,7 @@ public class Unit
         {
             Unit targetUnit = battle.unitDic[resultUid];
 
-            if (distance - targetUnit.sds.GetRadius() < sds.GetAttackRange())
+            if (distance < sds.GetAttackRange())
             {
                 targetUid = resultUid;
 
