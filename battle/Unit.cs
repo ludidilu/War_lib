@@ -173,7 +173,7 @@ public class Unit
 
                 if (targetUnit.nowHp > 0)
                 {
-                    if (Vector2.Distance(targetUnit.pos, pos) < sds.GetAttackRange())
+                    if (Vector2.Distance(targetUnit.pos, pos) - targetUnit.sds.GetRadius() < sds.GetAttackRange())
                     {
                         if (attackStep == 0)
                         {
@@ -181,6 +181,8 @@ public class Unit
 
                             targetUnit.BeDamage(sds.GetAttackDamage());
                         }
+
+                        prefVelocity = Vector2.zero;
 
                         return;
                     }
@@ -196,7 +198,36 @@ public class Unit
             }
         }
 
-        //simulator.getNearestAgent
+        int resultUid = -1;
+
+        double distance = sds.GetVisionRange();
+
+        simulator.getNearestAgent(uid, ref resultUid, 0, ref distance, CheckTarget);
+
+        if(resultUid != -1)
+        {
+            Unit targetUnit = battle.unitDic[resultUid];
+
+            if (distance - targetUnit.sds.GetRadius() < sds.GetAttackRange())
+            {
+                targetUid = resultUid;
+
+                if (attackStep == 0)
+                {
+                    attackStep = sds.GetAttackStep();
+
+                    targetUnit.BeDamage(sds.GetAttackDamage());
+                }
+
+                prefVelocity = Vector2.zero;
+            }
+            else
+            {
+                prefVelocity = targetUnit.pos - pos;
+            }
+
+            return;
+        }
 
         if (isMine)
         {
@@ -206,6 +237,13 @@ public class Unit
         {
             prefVelocity = new Vector2(-1000, 0);
         }
+    }
+
+    private bool CheckTarget(int _uid)
+    {
+        Unit unit = battle.unitDic[_uid];
+
+        return unit.isMine != isMine;
     }
 
     internal void Die()

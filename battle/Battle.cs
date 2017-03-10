@@ -216,6 +216,8 @@ public class Battle
         }
 
         {
+            simulator.BuildAgentTree();
+
             LinkedList<Unit>.Enumerator enumerator = unitList.GetEnumerator();
 
             while (enumerator.MoveNext())
@@ -224,6 +226,8 @@ public class Battle
 
                 unit.Update();
             }
+
+            simulator.BuildAgentTree();
 
             LinkedListNode<Unit> node = unitList.First;
 
@@ -391,7 +395,7 @@ public class Battle
                 {
                     Log.Write("myRound:" + roundNum + "  serverRound:" + serverRoundNum + "  我日   延迟已经" + roundDiff + "回合了  而且还有玩家操作  没救了  让服务器重新刷数据吧" + "  roundDiff:" + roundDiff);
 
-                    //ask server to refresh all data
+                    ClientRequestRefresh();
 
                     return;
                 }
@@ -497,6 +501,8 @@ public class Battle
 
     private void ServerRefresh()
     {
+        Log.Write("ServerRefresh:" + roundNum);
+
         using (MemoryStream ms = new MemoryStream())
         {
             using (BinaryWriter bw = new BinaryWriter(ms))
@@ -636,7 +642,11 @@ public class Battle
 
         commandPool.Clear();
 
-        roundNum = _br.ReadInt32();
+        simulator.ClearAgents();
+
+        serverRoundNum = roundNum = _br.ReadInt32();
+
+        Log.Write("client refresh data " + roundNum);
 
         uid = _br.ReadInt32();
 
