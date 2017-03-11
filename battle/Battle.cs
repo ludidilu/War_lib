@@ -34,7 +34,7 @@ public class Battle
 
     internal static IGameConfig gameConfig;
 
-    private Action<MemoryStream> sendDataCallBack;
+    private Action<bool, MemoryStream> serverSendDataCallBack;
 
     public Dictionary<int, Unit> unitDic = new Dictionary<int, Unit>();
 
@@ -54,7 +54,11 @@ public class Battle
 
     private int roundNum;
 
+    private Action overCallBack;
+
     //client data
+    public bool clientIsMine;
+    private Action<MemoryStream> clientSendDataCallBack;
     private int serverRoundNum;
     private Dictionary<int, double> resultDic = new Dictionary<int, double>();
     private Action updateCallBack;
@@ -67,22 +71,29 @@ public class Battle
         getUnitCallBack = _getUnitCallBack;
     }
 
-    public void ServerStart(Action<MemoryStream> _sendDataCallBack)
+    public void ServerInit(Action<bool, MemoryStream> _serverSendDataCallBack, Action _overCallBack)
     {
-        sendDataCallBack = _sendDataCallBack;
+        serverSendDataCallBack = _serverSendDataCallBack;
 
-        uid = commandID = roundNum = 1;
+        overCallBack = _overCallBack;
 
         InitSimulator();
     }
 
-    public void ClientStart(Action<MemoryStream> _sendDataCallBack, Action _updateCallBack)
+    public void ClientInit(Action<MemoryStream> _clientSendDataCallBack, Action _updateCallBack, Action _overCallBack)
     {
-        sendDataCallBack = _sendDataCallBack;
+        clientSendDataCallBack = _clientSendDataCallBack;
 
         updateCallBack = _updateCallBack;
 
+        overCallBack = _overCallBack;
+
         InitSimulator();
+    }
+
+    public void ServerStart()
+    {
+        uid = commandID = roundNum = 1;
     }
 
     private void InitSimulator()
@@ -100,6 +111,23 @@ public class Battle
         simulator.setMaxRadius(gameConfig.GetMaxRadius());
 
         simulator.setMapBoundFix(gameConfig.GetMapBoundFix());
+    }
+
+    private void Over()
+    {
+        unitDic.Clear();
+
+        unitList.Clear();
+
+        mPoolDic.Clear();
+
+        oPoolDic.Clear();
+
+        commandPool.Clear();
+
+        simulator.ClearAgents();
+
+        overCallBack();
     }
 
     private void AddUnitToPool(bool _isMine, int _id)
@@ -288,12 +316,13 @@ public class Battle
         {
             bw.Write(result);
 
-            sendDataCallBack(ms);
+            serverSendDataCallBack(true, ms);
+
+            serverSendDataCallBack(false, ms);
 
             ms.Dispose();
 
             bw.Close();
-            //server send result to client 
         }
 
         roundNum++;
@@ -473,7 +502,7 @@ public class Battle
         return commandID;
     }
 
-    public void ServerGetBytes(byte[] _bytes)
+    public void ServerGetBytes(bool _isMine, byte[] _bytes)
     {
         using (MemoryStream ms = new MemoryStream(_bytes))
         {
@@ -485,13 +514,13 @@ public class Battle
                 {
                     case C2SCommand.REFRESH:
 
-                        ServerRefresh();
+                        ServerRefresh(_isMine);
 
                         break;
 
                     case C2SCommand.ACTION:
 
-                        ServerReceiveCommand(br);
+                        ServerReceiveCommand(_isMine, br);
 
                         break;
                 }
@@ -499,7 +528,7 @@ public class Battle
         }
     }
 
-    private void ServerRefresh()
+    private void ServerRefresh(bool _isMine)
     {
         Log.Write("ServerRefresh:" + roundNum);
 
@@ -508,6 +537,8 @@ public class Battle
             using (BinaryWriter bw = new BinaryWriter(ms))
             {
                 bw.Write((int)S2CCommand.REFRESH);
+
+                bw.Write(_isMine);
 
                 bw.Write(roundNum);
 
@@ -572,18 +603,16 @@ public class Battle
                     }
                 }
 
-                sendDataCallBack(ms);
+                serverSendDataCallBack(_isMine, ms);
             }
         }
     }
 
-    private void ServerReceiveCommand(BinaryReader _br)
+    private void ServerReceiveCommand(bool _isMine, BinaryReader _br)
     {
-        bool isMine = _br.ReadBoolean();
-
         int id = _br.ReadInt32();
 
-        CommandData data = new CommandData(isMine, id);
+        CommandData data = new CommandData(_isMine, id);
 
         ReceiveCommand(roundNum + gameConfig.GetCommandDelay(), GetCommandID(), data);
 
@@ -593,7 +622,7 @@ public class Battle
             {
                 bw.Write((int)S2CCommand.ACTION_OK);
 
-                sendDataCallBack(ms);
+                serverSendDataCallBack(_isMine, ms);
             }
         }
     }
@@ -643,6 +672,8 @@ public class Battle
         commandPool.Clear();
 
         simulator.ClearAgents();
+
+        clientIsMine = _br.ReadBoolean();
 
         serverRoundNum = roundNum = _br.ReadInt32();
 
@@ -710,7 +741,7 @@ public class Battle
         }
     }
 
-    public void ClientSendCommand(bool _isMine, int _id)
+    public void ClientSendCommand(int _id)
     {
         using (MemoryStream ms = new MemoryStream())
         {
@@ -718,11 +749,9 @@ public class Battle
             {
                 bw.Write((int)C2SCommand.ACTION);
 
-                bw.Write(_isMine);
-
                 bw.Write(_id);
 
-                sendDataCallBack(ms);
+                clientSendDataCallBack(ms);
             }
         }
     }
@@ -735,7 +764,7 @@ public class Battle
             {
                 bw.Write((int)C2SCommand.REFRESH);
 
-                sendDataCallBack(ms);
+                clientSendDataCallBack(ms);
             }
         }
     }
