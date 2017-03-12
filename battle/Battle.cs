@@ -6,13 +6,39 @@ using System.IO;
 class CommandData
 {
     public bool isMine;
-    public int id;
 
-    public CommandData(bool _isMine, int _id)
+    public CommandData(bool _isMine)
     {
         isMine = _isMine;
+    }
+}
+
+class UnitCommandData : CommandData
+{
+    public int id;
+
+    public UnitCommandData(bool _isMine, int _id) : base(_isMine)
+    {
         id = _id;
     }
+}
+
+class HeroCommandData : CommandData
+{
+    public int id;
+    public Vector2 pos;
+
+    public HeroCommandData(bool _isMine, int _id, Vector2 _pos) : base(_isMine)
+    {
+        id = _id;
+        pos = _pos;
+    }
+}
+
+enum CommandType
+{
+    UNIT,
+    HERO
 }
 
 enum C2SCommand
@@ -352,7 +378,26 @@ public class Battle
 
                 _bw.Write(data.isMine);
 
-                _bw.Write(data.id);
+                if (data is UnitCommandData)
+                {
+                    UnitCommandData command = data as UnitCommandData;
+
+                    _bw.Write((int)CommandType.UNIT);
+
+                    _bw.Write(command.id);
+                }
+                else if (data is HeroCommandData)
+                {
+                    HeroCommandData command = data as HeroCommandData;
+
+                    _bw.Write((int)CommandType.HERO);
+
+                    _bw.Write(command.id);
+
+                    _bw.Write(command.pos.x);
+
+                    _bw.Write(command.pos.y);
+                }
             }
         }
         else
@@ -379,9 +424,38 @@ public class Battle
 
                 bool isMine = _br.ReadBoolean();
 
-                int id = _br.ReadInt32();
+                CommandData command;
 
-                commandData.Add(tmpCommandID, new CommandData(isMine, id));
+                CommandType commandType = (CommandType)_br.ReadInt32();
+
+                switch (commandType)
+                {
+                    case CommandType.UNIT:
+
+                        int id = _br.ReadInt32();
+
+                        command = new UnitCommandData(isMine, id);
+
+                        break;
+
+                    case CommandType.HERO:
+
+                        id = _br.ReadInt32();
+
+                        double x = _br.ReadDouble();
+
+                        double y = _br.ReadDouble();
+
+                        command = new HeroCommandData(isMine, id, new Vector2(x, y));
+
+                        break;
+
+                    default:
+
+                        throw new Exception("commandtype error");
+                }
+
+                commandData.Add(tmpCommandID, command);
             }
         }
 
@@ -487,7 +561,18 @@ public class Battle
 
     private void DoCommand(CommandData _commandData)
     {
-        AddUnitToPool(_commandData.isMine, _commandData.id);
+        if (_commandData is UnitCommandData)
+        {
+            UnitCommandData command = _commandData as UnitCommandData;
+
+            AddUnitToPool(command.isMine, command.id);
+        }
+        else if (_commandData is HeroCommandData)
+        {
+            HeroCommandData command = _commandData as HeroCommandData;
+
+            AddUnitToBattle(command.isMine, command.id, command.pos);
+        }
     }
 
     private int GetUid()
@@ -528,7 +613,7 @@ public class Battle
         }
     }
 
-    private void ServerRefresh(bool _isMine)
+    public void ServerRefresh(bool _isMine)
     {
         Log.Write("ServerRefresh:" + roundNum);
 
@@ -599,7 +684,26 @@ public class Battle
 
                         bw.Write(data.isMine);
 
-                        bw.Write(data.id);
+                        if (data is UnitCommandData)
+                        {
+                            UnitCommandData command = data as UnitCommandData;
+
+                            bw.Write((int)CommandType.UNIT);
+
+                            bw.Write(command.id);
+                        }
+                        else if (data is HeroCommandData)
+                        {
+                            HeroCommandData command = data as HeroCommandData;
+
+                            bw.Write((int)CommandType.HERO);
+
+                            bw.Write(command.id);
+
+                            bw.Write(command.pos.x);
+
+                            bw.Write(command.pos.y);
+                        }
                     }
                 }
 
@@ -610,9 +714,36 @@ public class Battle
 
     private void ServerReceiveCommand(bool _isMine, BinaryReader _br)
     {
-        int id = _br.ReadInt32();
+        CommandData data;
 
-        CommandData data = new CommandData(_isMine, id);
+        CommandType commandType = (CommandType)_br.ReadInt32();
+
+        switch (commandType)
+        {
+            case CommandType.UNIT:
+
+                int id = _br.ReadInt32();
+
+                data = new UnitCommandData(_isMine, id);
+
+                break;
+
+            case CommandType.HERO:
+
+                id = _br.ReadInt32();
+
+                double x = _br.ReadDouble();
+
+                double y = _br.ReadDouble();
+
+                data = new HeroCommandData(_isMine, id, new Vector2(x, y));
+
+                break;
+
+            default:
+
+                throw new Exception("commandtype error");
+        }
 
         ReceiveCommand(roundNum + gameConfig.GetCommandDelay(), GetCommandID(), data);
 
@@ -734,14 +865,43 @@ public class Battle
 
                 bool isMine = _br.ReadBoolean();
 
-                int id = _br.ReadInt32();
+                CommandData commandData;
 
-                tmpDic.Add(tmpCommandID, new CommandData(isMine, id));
+                CommandType commandType = (CommandType)_br.ReadInt32();
+
+                switch (commandType)
+                {
+                    case CommandType.UNIT:
+
+                        int id = _br.ReadInt32();
+
+                        commandData = new UnitCommandData(isMine, id);
+
+                        break;
+
+                    case CommandType.HERO:
+
+                        id = _br.ReadInt32();
+
+                        double x = _br.ReadDouble();
+
+                        double y = _br.ReadDouble();
+
+                        commandData = new HeroCommandData(isMine, id, new Vector2(x, y));
+
+                        break;
+
+                    default:
+
+                        throw new Exception("commandtype error");
+                }
+
+                tmpDic.Add(tmpCommandID, commandData);
             }
         }
     }
 
-    public void ClientSendCommand(int _id)
+    private void ClientSendCommand(CommandData _data)
     {
         using (MemoryStream ms = new MemoryStream())
         {
@@ -749,11 +909,44 @@ public class Battle
             {
                 bw.Write((int)C2SCommand.ACTION);
 
-                bw.Write(_id);
+                if (_data is UnitCommandData)
+                {
+                    UnitCommandData command = _data as UnitCommandData;
+
+                    bw.Write((int)CommandType.UNIT);
+
+                    bw.Write(command.id);
+                }
+                else if (_data is HeroCommandData)
+                {
+                    HeroCommandData command = _data as HeroCommandData;
+
+                    bw.Write((int)CommandType.HERO);
+
+                    bw.Write(command.id);
+
+                    bw.Write(command.pos.x);
+
+                    bw.Write(command.pos.y);
+                }
 
                 clientSendDataCallBack(ms);
             }
         }
+    }
+
+    public void ClientSendUnitCommand(int _id)
+    {
+        UnitCommandData data = new UnitCommandData(true, _id);
+
+        ClientSendCommand(data);
+    }
+
+    public void ClientSendHeroCommand(int _id, double _x, double _y)
+    {
+        HeroCommandData data = new HeroCommandData(true, _id, new Vector2(_x, _y));
+
+        ClientSendCommand(data);
     }
 
     public void ClientRequestRefresh()
