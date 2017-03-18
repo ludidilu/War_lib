@@ -50,7 +50,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="ORCA">
-      <HintPath>..\orca\bin\x64\Debug\ORCA.dll</HintPath>
+      <HintPath>..\..\orca\bin\x64\Debug\ORCA.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />

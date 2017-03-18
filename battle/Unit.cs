@@ -1,5 +1,7 @@
 ﻿using RVO;
 using System.IO;
+using System.Collections.Generic;
+using System;
 
 public class Unit
 {
@@ -74,9 +76,7 @@ public class Unit
 
         simulator.addAgent(uid, _pos);
         simulator.setAgentIsMine(uid, isMine);
-        simulator.setAgentMaxSpeed(uid, sds.GetMoveSpeed());
-        simulator.setAgentRadius(uid, sds.GetRadius());
-        simulator.setAgentWeight(uid, sds.GetWeight());
+        InitSds();
     }
 
     internal void Init(Battle _battle, Simulator _simulator, BinaryReader _br)
@@ -98,9 +98,7 @@ public class Unit
 
         simulator.addAgent(uid, new Vector2(x, y));
         simulator.setAgentIsMine(uid, isMine);
-        simulator.setAgentMaxSpeed(uid, sds.GetMoveSpeed());
-        simulator.setAgentRadius(uid, sds.GetRadius());
-        simulator.setAgentWeight(uid, sds.GetWeight());
+        InitSds();
 
         x = _br.ReadDouble();
 
@@ -119,6 +117,14 @@ public class Unit
         attackStep = _br.ReadDouble();
 
         targetUid = _br.ReadInt32();
+    }
+
+    private void InitSds()
+    {
+        simulator.setAgentMaxSpeed(uid, sds.GetMoveSpeed());
+        simulator.setAgentRadius(uid, sds.GetRadius());
+        simulator.setAgentWeight(uid, sds.GetWeight());
+        simulator.setAgentType(uid, sds.GetIsAirUnit() ? AgentType.AirUnit : AgentType.GroundUnit);
     }
 
     internal void WriteData(BinaryWriter _bw)
@@ -171,7 +177,7 @@ public class Unit
             {
                 Unit targetUnit = battle.unitDic[targetUid];
 
-                if (targetUnit.nowHp > 0)
+                if (targetUnit.IsAlive())
                 {
                     if (Vector2.Distance(targetUnit.pos, pos) - targetUnit.sds.GetRadius() < sds.GetAttackRange())
                     {
@@ -179,7 +185,7 @@ public class Unit
                         {
                             attackStep = sds.GetAttackStep();
 
-                            targetUnit.BeDamage(sds.GetAttackDamage());
+                            DamageTarget(targetUnit);
                         }
 
                         prefVelocity = Vector2.zero;
@@ -208,7 +214,7 @@ public class Unit
 
         simulator.getNearestAgent(uid, ref resultUid, 0, ref distance, CheckTarget);
 
-        if(resultUid != -1)
+        if (resultUid != -1)
         {
             Unit targetUnit = battle.unitDic[resultUid];
 
@@ -220,7 +226,7 @@ public class Unit
                 {
                     attackStep = sds.GetAttackStep();
 
-                    targetUnit.BeDamage(sds.GetAttackDamage());
+                    DamageTarget(targetUnit);
                 }
 
                 prefVelocity = Vector2.zero;
@@ -243,11 +249,114 @@ public class Unit
         }
     }
 
+    internal bool IsAlive()
+    {
+        return nowHp > 0;
+    }
+
+    private void DamageTarget(Unit _targetUnit)
+    {
+        switch (sds.GetAttackType())
+        {
+            case UnitAttackType.SINGLE:
+
+                _targetUnit.BeDamage(sds.GetAttackDamage());
+
+                break;
+
+            case UnitAttackType.SELF_AREA:
+
+                List<int> tmpTargetUids = simulator.computePointNeightbors(pos, sds.GetAttackRange());
+
+                for (int i = 0; i < tmpTargetUids.Count; i++)
+                {
+                    int tmpUid = tmpTargetUids[i];
+
+                    if (CheckTarget(tmpUid))
+                    {
+                        Unit tmpUnit = battle.unitDic[tmpUid];
+
+                        tmpUnit.BeDamage(sds.GetAttackDamage());
+                    }
+                }
+
+                break;
+
+            case UnitAttackType.TARGET_AREA:
+
+                tmpTargetUids = simulator.computePointNeightbors(_targetUnit.pos, sds.GetAttackTypeData());
+
+                for (int i = 0; i < tmpTargetUids.Count; i++)
+                {
+                    int tmpUid = tmpTargetUids[i];
+
+                    if (CheckTarget(tmpUid))
+                    {
+                        Unit tmpUnit = battle.unitDic[tmpUid];
+
+                        tmpUnit.BeDamage(sds.GetAttackDamage());
+                    }
+                }
+
+                break;
+
+            case UnitAttackType.CONE_AREA:
+
+                _targetUnit.BeDamage(sds.GetAttackDamage());
+
+                Vector2 v = _targetUnit.pos - pos;
+
+                tmpTargetUids = simulator.computePointNeightbors(pos, sds.GetAttackRange());
+
+                for (int i = 0; i < tmpTargetUids.Count; i++)
+                {
+                    int tmpUid = tmpTargetUids[i];
+
+                    if (tmpUid != _targetUnit.uid)
+                    {
+                        if (CheckTarget(tmpUid))
+                        {
+                            Unit tmpUnit = battle.unitDic[tmpUid];
+
+                            double angle = Vector2.Angle(v, tmpUnit.pos - pos);
+
+                            double radiusAngle = Math.Asin(tmpUnit.sds.GetRadius() / Vector2.Distance(pos, tmpUnit.pos));
+
+                            if (angle - radiusAngle < sds.GetAttackTypeData())
+                            {
+                                tmpUnit.BeDamage(sds.GetAttackDamage());
+                            }
+                        }
+                    }
+                }
+
+                break;
+        }
+    }
+
     private bool CheckTarget(int _uid)
     {
         Unit unit = battle.unitDic[_uid];
 
-        return unit.isMine != isMine;
+        if (unit.IsAlive() && unit.isMine != isMine)
+        {
+            if (unit.sds.GetIsAirUnit())
+            {
+                if (sds.GetCanAttackAirUnit())
+                {
+                    return true;
+                }
+            }
+            else
+            {
+                if (sds.GetCanAttackGroundUnit())
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     internal void Die()

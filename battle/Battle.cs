@@ -82,6 +82,8 @@ public class Battle
 
     private Action overCallBack;
 
+    private Random random;
+
     //client data
     public bool clientIsMine;
     private Action<MemoryStream> clientSendDataCallBack;
@@ -99,6 +101,8 @@ public class Battle
 
     public void ServerInit(Action<bool, MemoryStream> _serverSendDataCallBack, Action _overCallBack)
     {
+        random = new Random();
+
         serverSendDataCallBack = _serverSendDataCallBack;
 
         overCallBack = _overCallBack;
@@ -210,7 +214,7 @@ public class Battle
             {
                 double posX = 70 - sds.GetQueuePos();
 
-                double posY = (i % 2 == 0 ? 1 : -1) * i * 0.1;
+                double posY = (i % 2 == 0 ? -1 : 1) * i * 0.1;
 
                 Vector2 pos = new Vector2(posX, posY);
 
@@ -293,7 +297,7 @@ public class Battle
 
                 Unit unit = tmpNode.Value;
 
-                if (unit.nowHp < 1)
+                if (!unit.IsAlive())
                 {
                     unit.Die();
 
@@ -615,7 +619,7 @@ public class Battle
 
     public void ServerRefresh(bool _isMine)
     {
-        Log.Write("ServerRefresh:" + roundNum);
+        Log.Write("ServerRefresh:" + roundNum + "   isMine:" + _isMine);
 
         using (MemoryStream ms = new MemoryStream())
         {
@@ -732,9 +736,9 @@ public class Battle
 
                 id = _br.ReadInt32();
 
-                double x = _br.ReadDouble();
+                double x = _br.ReadDouble() + (random.NextDouble() - 0.5) * 0.01;
 
-                double y = _br.ReadDouble();
+                double y = _br.ReadDouble() + (random.NextDouble() - 0.5) * 0.01;
 
                 data = new HeroCommandData(_isMine, id, new Vector2(x, y));
 
@@ -808,7 +812,7 @@ public class Battle
 
         serverRoundNum = roundNum = _br.ReadInt32();
 
-        Log.Write("client refresh data " + roundNum);
+        Log.Write("client refresh data " + roundNum + "  clientIsMine:" + clientIsMine);
 
         uid = _br.ReadInt32();
 
