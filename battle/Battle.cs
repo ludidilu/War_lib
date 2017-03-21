@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using RVO;
 using System.IO;
 
-class CommandData
+public class CommandData
 {
     public bool isMine;
 
@@ -13,7 +13,7 @@ class CommandData
     }
 }
 
-class UnitCommandData : CommandData
+public class UnitCommandData : CommandData
 {
     public int id;
 
@@ -23,7 +23,7 @@ class UnitCommandData : CommandData
     }
 }
 
-class HeroCommandData : CommandData
+public class HeroCommandData : CommandData
 {
     public int id;
     public Vector2 pos;
@@ -75,23 +75,27 @@ public class Battle
 
     private Action<bool, MemoryStream> serverSendDataCallBack;
 
-    public Dictionary<int, Unit> unitDic = new Dictionary<int, Unit>();
+    public Dictionary<int, Unit> unitDic = new Dictionary<int, Unit>();//这个字典里存的是所有场上的单位和英雄 下标是uid
 
-    public LinkedList<Unit> unitList = new LinkedList<Unit>();
+    public LinkedList<Unit> unitList = new LinkedList<Unit>();//这个链表存的是所有场上的单位和英雄  为了unit执行动作时 客户端服务器顺序一致 所以才用了这个链表
 
-    public Dictionary<int, Unit> mHeroPool = new Dictionary<int, Unit>();
+    public Dictionary<int, Unit> mHeroPool = new Dictionary<int, Unit>();//这个字典存的是所有场上的英雄  下标是英雄id  为了方便检测英雄能否放置和能否使用技能
 
-    public Dictionary<int, Unit> oHeroPool = new Dictionary<int, Unit>();
+    public Dictionary<int, Unit> oHeroPool = new Dictionary<int, Unit>();//这个字典存的是所有场上的英雄  下标是英雄id  为了方便检测英雄能否放置和能否使用技能
 
-    public Dictionary<int, int> mUnitPool = new Dictionary<int, int>();
+    public Dictionary<int, int> mUnitPool = new Dictionary<int, int>();//这个字典存的是所有按波次上场的单位  下标是单位id
 
-    public Dictionary<int, int> oUnitPool = new Dictionary<int, int>();
+    public Dictionary<int, int> oUnitPool = new Dictionary<int, int>();//这个字典存的是所有按波次上场的单位  下标是单位id
 
-    private Dictionary<int, Dictionary<int, CommandData>> commandPool = new Dictionary<int, Dictionary<int, CommandData>>();
+    public Dictionary<int, Dictionary<int, CommandData>> commandPool = new Dictionary<int, Dictionary<int, CommandData>>();//这个字典存的是所有非单位命令  第一个下标是roundNum 第二个下标是commandID
 
-    private Dictionary<int, Dictionary<int, UnitCommandData>> mUnitCommandPool = new Dictionary<int, Dictionary<int, UnitCommandData>>();
+    public Dictionary<int, HeroCommandData> mHeroCommandPool = new Dictionary<int, HeroCommandData>();//这个字典存的是所有放置英雄的命令  下标是英雄id  为了方便检测英雄能否放置  英雄一旦放上了场就会从这个字典中删除
 
-    private Dictionary<int, Dictionary<int, UnitCommandData>> oUnitCommandPool = new Dictionary<int, Dictionary<int, UnitCommandData>>();
+    public Dictionary<int, HeroCommandData> oHeroCommandPool = new Dictionary<int, HeroCommandData>();//这个字典存的是所有放置英雄的命令  下标是英雄id  为了方便检测英雄能否放置  英雄一旦放上了场就会从这个字典中删除
+
+    public Dictionary<int, Dictionary<int, UnitCommandData>> mUnitCommandPool = new Dictionary<int, Dictionary<int, UnitCommandData>>();//这个字典存的是所有单位命令  第一个下标是roundNum 第二个下标是commandID
+
+    public Dictionary<int, Dictionary<int, UnitCommandData>> oUnitCommandPool = new Dictionary<int, Dictionary<int, UnitCommandData>>();//这个字典存的是所有单位命令  第一个下标是roundNum 第二个下标是commandID
 
     private int uid;
 
@@ -108,6 +112,12 @@ public class Battle
     public int mMoney { private set; get; }
 
     public int oMoney { private set; get; }
+
+    private int mShowMoney;//只有服务器有这个数据
+
+    private int oShowMoney;//只有服务器有这个数据
+
+    private bool isClient;
 
     //client data
     public bool clientIsMine;
@@ -127,6 +137,8 @@ public class Battle
 
     public void ServerInit(Action<bool, MemoryStream> _serverSendDataCallBack, Action _overCallBack)
     {
+        isClient = false;
+
         random = new Random();
 
         serverSendDataCallBack = _serverSendDataCallBack;
@@ -138,6 +150,8 @@ public class Battle
 
     public void ClientInit(Action<MemoryStream> _clientSendDataCallBack, Action _updateCallBack, Action _overCallBack, Action<bool> _sendCommandCallBack)
     {
+        isClient = true;
+
         clientSendDataCallBack = _clientSendDataCallBack;
 
         updateCallBack = _updateCallBack;
@@ -153,7 +167,7 @@ public class Battle
     {
         uid = commandID = roundNum = 1;
 
-        mMoney = oMoney = gameConfig.GetDefaultMoney();
+        mShowMoney = oShowMoney = mMoney = oMoney = gameConfig.GetDefaultMoney();
     }
 
     private void InitSimulator()
@@ -184,6 +198,10 @@ public class Battle
         oUnitPool.Clear();
 
         commandPool.Clear();
+
+        mHeroCommandPool.Clear();
+
+        oHeroCommandPool.Clear();
 
         mHeroPool.Clear();
 
@@ -273,9 +291,26 @@ public class Battle
 
         if (unit.sds.GetIsHero())
         {
-            Dictionary<int, Unit> tmpDic = _isMine ? mHeroPool : oHeroPool;
+            Dictionary<int, Unit> tmpDic;
+
+            Dictionary<int, HeroCommandData> tmpDic2;
+
+            if (_isMine)
+            {
+                tmpDic = mHeroPool;
+
+                tmpDic2 = mHeroCommandPool;
+            }
+            else
+            {
+                tmpDic = oHeroPool;
+
+                tmpDic2 = oHeroCommandPool;
+            }
 
             tmpDic.Add(_id, unit);
+
+            tmpDic2.Remove(_id);
         }
 
         return unit;
@@ -291,7 +326,7 @@ public class Battle
 
         BinaryWriter oBw = null;
 
-        if (updateCallBack == null)
+        if (!isClient)
         {
             mMs = new MemoryStream();
 
@@ -321,7 +356,8 @@ public class Battle
             commandPool.Remove(roundNum);
         }
 
-        if ((roundNum + gameConfig.GetCommandDelay()) % gameConfig.GetSpawnStep() == 0)
+        //服务器必须在波次到来前N帧将新增单位指令添加到pool中
+        if (!isClient && (roundNum + gameConfig.GetCommandDelay()) % gameConfig.GetSpawnStep() == 0)
         {
             Dictionary<int, Dictionary<int, UnitCommandData>>.ValueCollection.Enumerator enumerator = mUnitCommandPool.Values.GetEnumerator();
 
@@ -354,6 +390,83 @@ public class Battle
             }
 
             oUnitCommandPool.Clear();
+        }
+        //客户端必须在波次到来的这一帧将新增单位指令添加到pool中  同时还要将下一个波次的新增单位指令继续保存
+        else if (isClient && roundNum % gameConfig.GetSpawnStep() == 0)
+        {
+            Dictionary<int, Dictionary<int, UnitCommandData>> newDic = null;
+
+            Dictionary<int, Dictionary<int, UnitCommandData>>.Enumerator enumerator = mUnitCommandPool.GetEnumerator();
+
+            while (enumerator.MoveNext())
+            {
+                if(enumerator.Current.Key > roundNum)
+                {
+                    if(newDic == null)
+                    {
+                        newDic = new Dictionary<int, Dictionary<int, UnitCommandData>>();
+                    }
+
+                    newDic.Add(enumerator.Current.Key, enumerator.Current.Value);
+                }
+                else
+                {
+                    Dictionary<int, UnitCommandData> tmpDic = enumerator.Current.Value;
+
+                    Dictionary<int, UnitCommandData>.ValueCollection.Enumerator enumerator2 = tmpDic.Values.GetEnumerator();
+
+                    while (enumerator2.MoveNext())
+                    {
+                        DoCommand(enumerator2.Current);
+                    }
+                }
+            }
+
+            if(newDic != null)
+            {
+                mUnitCommandPool = newDic;
+
+                newDic = null;
+            }
+            else
+            {
+                mUnitCommandPool.Clear();
+            }
+
+            enumerator = oUnitCommandPool.GetEnumerator();
+
+            while (enumerator.MoveNext())
+            {
+                if (enumerator.Current.Key > roundNum)
+                {
+                    if (newDic == null)
+                    {
+                        newDic = new Dictionary<int, Dictionary<int, UnitCommandData>>();
+                    }
+
+                    newDic.Add(enumerator.Current.Key, enumerator.Current.Value);
+                }
+                else
+                {
+                    Dictionary<int, UnitCommandData> tmpDic = enumerator.Current.Value;
+
+                    Dictionary<int, UnitCommandData>.ValueCollection.Enumerator enumerator2 = tmpDic.Values.GetEnumerator();
+
+                    while (enumerator2.MoveNext())
+                    {
+                        DoCommand(enumerator2.Current);
+                    }
+                }
+            }
+
+            if (newDic != null)
+            {
+                oUnitCommandPool = newDic;
+            }
+            else
+            {
+                oUnitCommandPool.Clear();
+            }
         }
         //----
 
@@ -421,7 +534,7 @@ public class Battle
 
         oMoney += gameConfig.GetMoneyPerStep();
 
-        if (updateCallBack != null)
+        if (isClient)
         {
             if (resultDic.ContainsKey(roundNum))
             {
@@ -460,6 +573,10 @@ public class Battle
             oMs.Dispose();
 
             oBw.Close();
+
+            mShowMoney += gameConfig.GetMoneyPerStep();
+
+            oShowMoney += gameConfig.GetMoneyPerStep();
         }
 
         roundNum++;
@@ -550,6 +667,15 @@ public class Battle
 
                     _bw.Write(enumerator2.Current.Value.id);
                 }
+            }
+
+            if (_isMine)
+            {
+                oShowMoney = oMoney;
+            }
+            else
+            {
+                mShowMoney = mMoney;
             }
         }
     }
@@ -714,7 +840,12 @@ public class Battle
 
             while (enumerator.MoveNext())
             {
-                ReceiveCommand(serverRoundNum + gameConfig.GetCommandDelay(), enumerator.Current.Key, enumerator.Current.Value);
+                bool b = ReceiveCommand(serverRoundNum + gameConfig.GetCommandDelay(), enumerator.Current.Key, enumerator.Current.Value);
+
+                if (!b)
+                {
+                    throw new Exception("error1");
+                }
             }
         }
 
@@ -724,7 +855,12 @@ public class Battle
 
             while (enumerator.MoveNext())
             {
-                ReceiveCommand(serverRoundNum + gameConfig.GetCommandDelay(), enumerator.Current.Key, enumerator.Current.Value);
+                bool b = ReceiveCommand(serverRoundNum + gameConfig.GetCommandDelay(), enumerator.Current.Key, enumerator.Current.Value);
+
+                if (!b)
+                {
+                    throw new Exception("error2");
+                }
             }
         }
 
@@ -734,7 +870,12 @@ public class Battle
 
             while (enumerator.MoveNext())
             {
-                ReceiveCommand(serverRoundNum + gameConfig.GetCommandDelay(), enumerator.Current.Key, enumerator.Current.Value);
+                bool b = ReceiveCommand(serverRoundNum + gameConfig.GetCommandDelay(), enumerator.Current.Key, enumerator.Current.Value);
+
+                if (!b)
+                {
+                    throw new Exception("error3");
+                }
             }
         }
 
@@ -825,7 +966,7 @@ public class Battle
             {
                 if (command.isMine)
                 {
-                    if (sds.GetPrize() > mMoney)
+                    if (mHeroCommandPool.ContainsKey(command.id) || mHeroPool.ContainsKey(command.id) || sds.GetPrize() > mMoney)
                     {
                         return false;
                     }
@@ -836,7 +977,7 @@ public class Battle
                 }
                 else
                 {
-                    if (sds.GetPrize() > oMoney)
+                    if (oHeroCommandPool.ContainsKey(command.id) || oHeroPool.ContainsKey(command.id) || sds.GetPrize() > oMoney)
                     {
                         return false;
                     }
@@ -868,6 +1009,10 @@ public class Battle
 
                 tmpDic.Add(_commandID, _commandData);
             }
+
+            Dictionary<int, HeroCommandData> tmpDic2 = _commandData.isMine ? mHeroCommandPool : oHeroCommandPool;
+
+            tmpDic2.Add(command.id, command);
         }
         else if (_commandData is SkillCommandData)
         {
@@ -947,9 +1092,18 @@ public class Battle
 
                 bw.Write(uid);
 
-                bw.Write(mMoney);
+                if (_isMine)
+                {
+                    bw.Write(mMoney);
 
-                bw.Write(oMoney);
+                    bw.Write(oShowMoney);
+                }
+                else
+                {
+                    bw.Write(mShowMoney);
+
+                    bw.Write(oMoney);
+                }
 
                 bw.Write(unitList.Count);
 
@@ -1156,6 +1310,10 @@ public class Battle
 
         commandPool.Clear();
 
+        mHeroCommandPool.Clear();
+
+        oHeroCommandPool.Clear();
+
         mHeroPool.Clear();
 
         oHeroPool.Clear();
@@ -1261,6 +1419,10 @@ public class Battle
                         double y = _br.ReadDouble();
 
                         commandData = new HeroCommandData(isMine, id, new Vector2(x, y));
+
+                        Dictionary<int, HeroCommandData> tmpDic2 = clientIsMine ? mHeroCommandPool : oHeroCommandPool;
+
+                        tmpDic2.Add(id, commandData as HeroCommandData);
 
                         break;
 
