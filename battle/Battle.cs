@@ -115,6 +115,7 @@ public class Battle
     private int serverRoundNum;
     private Dictionary<int, double> resultDic = new Dictionary<int, double>();
     private Action updateCallBack;
+    private Action<bool> sendCommandCallBack;
     //----
 
     public static void Init(IGameConfig _gameConfig, Func<int, IUnitSDS> _getUnitCallBack)
@@ -135,13 +136,15 @@ public class Battle
         InitSimulator();
     }
 
-    public void ClientInit(Action<MemoryStream> _clientSendDataCallBack, Action _updateCallBack, Action _overCallBack)
+    public void ClientInit(Action<MemoryStream> _clientSendDataCallBack, Action _updateCallBack, Action _overCallBack, Action<bool> _sendCommandCallBack)
     {
         clientSendDataCallBack = _clientSendDataCallBack;
 
         updateCallBack = _updateCallBack;
 
         overCallBack = _overCallBack;
+
+        sendCommandCallBack = _sendCommandCallBack;
 
         InitSimulator();
     }
@@ -1132,6 +1135,8 @@ public class Battle
                     case S2CCommand.ACTION_OK:
 
                         bool b = br.ReadBoolean();
+
+                        sendCommandCallBack(b);
 
                         break;
                 }
