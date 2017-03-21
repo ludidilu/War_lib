@@ -10,4 +10,6 @@
     int GetMoveTimes();
     int GetCommandDelay();
     int GetSpawnStep();
+    int GetMoneyPerStep();
+    int GetDefaultMoney();
 }

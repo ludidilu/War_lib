@@ -35,10 +35,23 @@ class HeroCommandData : CommandData
     }
 }
 
+class SkillCommandData : CommandData
+{
+    public int id;
+    public Vector2 pos;
+
+    public SkillCommandData(bool _isMine, int _id, Vector2 _pos) : base(_isMine)
+    {
+        id = _id;
+        pos = _pos;
+    }
+}
+
 enum CommandType
 {
     UNIT,
-    HERO
+    HERO,
+    SKILL
 }
 
 enum C2SCommand
@@ -51,7 +64,7 @@ enum S2CCommand
 {
     REFRESH,
     UPDATE,
-    ACTION_OK
+    ACTION_OK,
 }
 
 public class Battle
@@ -66,9 +79,13 @@ public class Battle
 
     public LinkedList<Unit> unitList = new LinkedList<Unit>();
 
-    private Dictionary<int, int> mPoolDic = new Dictionary<int, int>();
+    public Dictionary<int, Unit> mHeroPool = new Dictionary<int, Unit>();
 
-    private Dictionary<int, int> oPoolDic = new Dictionary<int, int>();
+    public Dictionary<int, Unit> oHeroPool = new Dictionary<int, Unit>();
+
+    public Dictionary<int, int> mUnitPool = new Dictionary<int, int>();
+
+    public Dictionary<int, int> oUnitPool = new Dictionary<int, int>();
 
     private Dictionary<int, Dictionary<int, CommandData>> commandPool = new Dictionary<int, Dictionary<int, CommandData>>();
 
@@ -87,6 +104,10 @@ public class Battle
     private Action overCallBack;
 
     private Random random;
+
+    public int mMoney { private set; get; }
+
+    public int oMoney { private set; get; }
 
     //client data
     public bool clientIsMine;
@@ -128,6 +149,8 @@ public class Battle
     public void ServerStart()
     {
         uid = commandID = roundNum = 1;
+
+        mMoney = oMoney = gameConfig.GetDefaultMoney();
     }
 
     private void InitSimulator()
@@ -153,11 +176,15 @@ public class Battle
 
         unitList.Clear();
 
-        mPoolDic.Clear();
+        mUnitPool.Clear();
 
-        oPoolDic.Clear();
+        oUnitPool.Clear();
 
         commandPool.Clear();
+
+        mHeroPool.Clear();
+
+        oHeroPool.Clear();
 
         mUnitCommandPool.Clear();
 
@@ -172,7 +199,7 @@ public class Battle
     {
         IUnitSDS sds = getUnitCallBack(_id);
 
-        Dictionary<int, int> pool = _isMine ? mPoolDic : oPoolDic;
+        Dictionary<int, int> pool = _isMine ? mUnitPool : oUnitPool;
 
         if (pool.ContainsKey(_id))
         {
@@ -186,7 +213,7 @@ public class Battle
 
     private void Spawn()
     {
-        Dictionary<int, int>.Enumerator enumerator = mPoolDic.GetEnumerator();
+        Dictionary<int, int>.Enumerator enumerator = mUnitPool.GetEnumerator();
 
         while (enumerator.MoveNext())
         {
@@ -208,7 +235,7 @@ public class Battle
             }
         }
 
-        enumerator = oPoolDic.GetEnumerator();
+        enumerator = oUnitPool.GetEnumerator();
 
         while (enumerator.MoveNext())
         {
@@ -240,6 +267,13 @@ public class Battle
         unitDic.Add(unit.uid, unit);
 
         unitList.AddLast(unit);
+
+        if (unit.sds.GetIsHero())
+        {
+            Dictionary<int, Unit> tmpDic = _isMine ? mHeroPool : oHeroPool;
+
+            tmpDic.Add(_id, unit);
+        }
 
         return unit;
     }
@@ -357,6 +391,13 @@ public class Battle
                     unitList.Remove(tmpNode);
 
                     unitDic.Remove(unit.uid);
+
+                    if (unit.sds.GetIsHero())
+                    {
+                        Dictionary<int, Unit> tmpDic = unit.isMine ? mHeroPool : oHeroPool;
+
+                        tmpDic.Remove(unit.id);
+                    }
                 }
             }
         }
@@ -372,6 +413,10 @@ public class Battle
 
         double result = simulator.doStepFinal();
         //----
+
+        mMoney += gameConfig.GetMoneyPerStep();
+
+        oMoney += gameConfig.GetMoneyPerStep();
 
         if (updateCallBack != null)
         {
@@ -709,11 +754,43 @@ public class Battle
         }
     }
 
-    private void ReceiveCommand(int _roundNum, int _commandID, CommandData _commandData)
+    private bool ReceiveCommand(int _roundNum, int _commandID, CommandData _commandData)
     {
         if (_commandData is UnitCommandData)
         {
             UnitCommandData command = _commandData as UnitCommandData;
+
+            IUnitSDS sds = getUnitCallBack(command.id);
+
+            if (!sds.GetIsHero())
+            {
+                if (command.isMine)
+                {
+                    if (sds.GetPrize() > mMoney)
+                    {
+                        return false;
+                    }
+                    else
+                    {
+                        mMoney -= sds.GetPrize();
+                    }
+                }
+                else
+                {
+                    if (sds.GetPrize() > oMoney)
+                    {
+                        return false;
+                    }
+                    else
+                    {
+                        oMoney -= sds.GetPrize();
+                    }
+                }
+            }
+            else
+            {
+                return false;
+            }
 
             Dictionary<int, Dictionary<int, UnitCommandData>> unitCommandPool = command.isMine ? mUnitCommandPool : oUnitCommandPool;
 
@@ -735,8 +812,42 @@ public class Battle
                 tmpDic.Add(_commandID, command);
             }
         }
-        else
+        else if (_commandData is HeroCommandData)
         {
+            HeroCommandData command = _commandData as HeroCommandData;
+
+            IUnitSDS sds = getUnitCallBack(command.id);
+
+            if (sds.GetIsHero())
+            {
+                if (command.isMine)
+                {
+                    if (sds.GetPrize() > mMoney)
+                    {
+                        return false;
+                    }
+                    else
+                    {
+                        mMoney -= sds.GetPrize();
+                    }
+                }
+                else
+                {
+                    if (sds.GetPrize() > oMoney)
+                    {
+                        return false;
+                    }
+                    else
+                    {
+                        oMoney -= sds.GetPrize();
+                    }
+                }
+            }
+            else
+            {
+                return false;
+            }
+
             if (commandPool.ContainsKey(_roundNum))
             {
                 Dictionary<int, CommandData> tmpDic = commandPool[_roundNum];
@@ -755,6 +866,12 @@ public class Battle
                 tmpDic.Add(_commandID, _commandData);
             }
         }
+        else if (_commandData is SkillCommandData)
+        {
+
+        }
+
+        return true;
     }
 
     private void DoCommand(CommandData _commandData)
@@ -827,6 +944,10 @@ public class Battle
 
                 bw.Write(uid);
 
+                bw.Write(mMoney);
+
+                bw.Write(oMoney);
+
                 bw.Write(unitList.Count);
 
                 LinkedList<Unit>.Enumerator enumerator = unitList.GetEnumerator();
@@ -838,9 +959,9 @@ public class Battle
                     unit.WriteData(bw);
                 }
 
-                bw.Write(mPoolDic.Count);
+                bw.Write(mUnitPool.Count);
 
-                Dictionary<int, int>.Enumerator enumerator2 = mPoolDic.GetEnumerator();
+                Dictionary<int, int>.Enumerator enumerator2 = mUnitPool.GetEnumerator();
 
                 while (enumerator2.MoveNext())
                 {
@@ -849,9 +970,9 @@ public class Battle
                     bw.Write(enumerator2.Current.Value);
                 }
 
-                bw.Write(oPoolDic.Count);
+                bw.Write(oUnitPool.Count);
 
-                enumerator2 = oPoolDic.GetEnumerator();
+                enumerator2 = oUnitPool.GetEnumerator();
 
                 while (enumerator2.MoveNext())
                 {
@@ -954,18 +1075,32 @@ public class Battle
 
                 break;
 
+            case CommandType.SKILL:
+
+                id = _br.ReadInt32();
+
+                x = _br.ReadDouble() + (random.NextDouble() - 0.5) * 0.01;
+
+                y = _br.ReadDouble() + (random.NextDouble() - 0.5) * 0.01;
+
+                data = new SkillCommandData(_isMine, id, new Vector2(x, y));
+
+                break;
+
             default:
 
                 throw new Exception("commandtype error");
         }
 
-        ReceiveCommand(roundNum + gameConfig.GetCommandDelay(), GetCommandID(), data);
-
         using (MemoryStream ms = new MemoryStream())
         {
             using (BinaryWriter bw = new BinaryWriter(ms))
             {
+                bool b = ReceiveCommand(roundNum + gameConfig.GetCommandDelay(), GetCommandID(), data);
+
                 bw.Write((int)S2CCommand.ACTION_OK);
+
+                bw.Write(b);
 
                 serverSendDataCallBack(_isMine, ms);
             }
@@ -984,7 +1119,7 @@ public class Battle
                 {
                     case S2CCommand.REFRESH:
 
-                        ClientRefreshData(br);
+                        ClientRefresh(br);
 
                         break;
 
@@ -996,7 +1131,7 @@ public class Battle
 
                     case S2CCommand.ACTION_OK:
 
-
+                        bool b = br.ReadBoolean();
 
                         break;
                 }
@@ -1004,17 +1139,21 @@ public class Battle
         }
     }
 
-    private void ClientRefreshData(BinaryReader _br)
+    private void ClientRefresh(BinaryReader _br)
     {
         unitDic.Clear();
 
         unitList.Clear();
 
-        mPoolDic.Clear();
+        mUnitPool.Clear();
 
-        oPoolDic.Clear();
+        oUnitPool.Clear();
 
         commandPool.Clear();
+
+        mHeroPool.Clear();
+
+        oHeroPool.Clear();
 
         mUnitCommandPool.Clear();
 
@@ -1030,6 +1169,10 @@ public class Battle
 
         uid = _br.ReadInt32();
 
+        mMoney = _br.ReadInt32();
+
+        oMoney = _br.ReadInt32();
+
         int num = _br.ReadInt32();
 
         for (int i = 0; i < num; i++)
@@ -1041,6 +1184,13 @@ public class Battle
             unitDic.Add(unit.uid, unit);
 
             unitList.AddLast(unit);
+
+            if (unit.sds.GetIsHero())
+            {
+                Dictionary<int, Unit> tmpDic = unit.isMine ? mHeroPool : oHeroPool;
+
+                tmpDic.Add(unit.id, unit);
+            }
         }
 
         num = _br.ReadInt32();
@@ -1051,7 +1201,7 @@ public class Battle
 
             int num2 = _br.ReadInt32();
 
-            mPoolDic.Add(id, num2);
+            mUnitPool.Add(id, num2);
         }
 
         num = _br.ReadInt32();
@@ -1062,7 +1212,7 @@ public class Battle
 
             int num2 = _br.ReadInt32();
 
-            oPoolDic.Add(id, num2);
+            oUnitPool.Add(id, num2);
         }
 
         num = _br.ReadInt32();

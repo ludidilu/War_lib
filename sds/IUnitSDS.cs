@@ -22,4 +22,6 @@ public interface IUnitSDS
     bool GetCanAttackGroundUnit();
     UnitAttackType GetAttackType();
     double GetAttackTypeData();
+    int GetPrize();
+    bool GetIsHero();
 }
