@@ -1,10 +1,10 @@
 ﻿public interface IGameConfig
 {
     double GetTimeStep();
-    double GetMapX();
-    double GetMapY();
     double GetMapWidth();
     double GetMapHeight();
+    double GetSpawnX();
+    double GetSpawnY();
     double GetMaxRadius();
     double GetMapBoundFix();
     int GetMoveTimes();

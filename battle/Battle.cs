@@ -172,7 +172,7 @@ public class Battle
 
     private void InitSimulator()
     {
-        Rect mapBounds = new Rect(gameConfig.GetMapX(), gameConfig.GetMapY(), gameConfig.GetMapWidth(), gameConfig.GetMapHeight());
+        Rect mapBounds = new Rect(-0.5 * gameConfig.GetMapWidth(), -0.5 * gameConfig.GetMapHeight(), gameConfig.GetMapWidth(), gameConfig.GetMapHeight());
 
         simulator = new Simulator();
 
@@ -246,9 +246,9 @@ public class Battle
 
             for (int i = 0; i < num; i++)
             {
-                double posX = -70 + sds.GetQueuePos();
+                double posX = -gameConfig.GetSpawnX() + sds.GetQueuePos();
 
-                double posY = (i % 2 == 0 ? 1 : -1) * i * 0.1;
+                double posY = -gameConfig.GetSpawnY() + (i % 2 == 0 ? 1 : -1) * i * 0.1;
 
                 Vector2 pos = new Vector2(posX, posY);
 
@@ -268,9 +268,9 @@ public class Battle
 
             for (int i = 0; i < num; i++)
             {
-                double posX = 70 - sds.GetQueuePos();
+                double posX = gameConfig.GetSpawnX() - sds.GetQueuePos();
 
-                double posY = (i % 2 == 0 ? -1 : 1) * i * 0.1;
+                double posY = gameConfig.GetSpawnY() + (i % 2 == 0 ? -1 : 1) * i * 0.1;
 
                 Vector2 pos = new Vector2(posX, posY);
 
@@ -400,9 +400,9 @@ public class Battle
 
             while (enumerator.MoveNext())
             {
-                if(enumerator.Current.Key > roundNum)
+                if (enumerator.Current.Key > roundNum)
                 {
-                    if(newDic == null)
+                    if (newDic == null)
                     {
                         newDic = new Dictionary<int, Dictionary<int, UnitCommandData>>();
                     }
@@ -422,7 +422,7 @@ public class Battle
                 }
             }
 
-            if(newDic != null)
+            if (newDic != null)
             {
                 mUnitCommandPool = newDic;
 
@@ -540,7 +540,7 @@ public class Battle
             {
                 double serverResult = resultDic[roundNum];
 
-                if (result != serverResult)
+                if (result.ToString("F4") != serverResult.ToString("F4"))
                 {
                     throw new Exception("我就日了  myRound:" + roundNum + "  serverRound:" + serverRoundNum + "    myResult:" + result + "  serverResult:" + serverResult);
                 }
@@ -883,7 +883,7 @@ public class Battle
         {
             double myResult = resultDic[serverRoundNum];
 
-            if (myResult != serverResult)
+            if (myResult.ToString("F4") != serverResult.ToString("F4"))
             {
                 throw new Exception("myRound:" + roundNum + "  serverRound:" + serverRoundNum + "  抓住你了!!!   myResult:" + myResult + "  serverResult:" + serverResult + "  roundDiff:" + roundDiff);
             }
