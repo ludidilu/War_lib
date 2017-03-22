@@ -540,7 +540,7 @@ public class Battle
             {
                 double serverResult = resultDic[roundNum];
 
-                if (Math.Round(result, 2) != Math.Round(serverResult, 2))
+                if (result != serverResult)
                 {
                     throw new Exception("我就日了  myRound:" + roundNum + "  serverRound:" + serverRoundNum + "    myResult:" + result + "  serverResult:" + serverResult);
                 }
@@ -883,7 +883,7 @@ public class Battle
         {
             double myResult = resultDic[serverRoundNum];
 
-            if (Math.Round(myResult, 2) != Math.Round(serverResult, 2))
+            if (myResult != serverResult)
             {
                 throw new Exception("myRound:" + roundNum + "  serverRound:" + serverRoundNum + "  抓住你了!!!   myResult:" + myResult + "  serverResult:" + serverResult + "  roundDiff:" + roundDiff);
             }
