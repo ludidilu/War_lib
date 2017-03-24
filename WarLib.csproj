@@ -63,10 +63,12 @@
   <ItemGroup>
     <Compile Include="battle\Battle.cs" />
     <Compile Include="battle\Hero.cs" />
+    <Compile Include="battle\Skill.cs" />
     <Compile Include="battle\Unit.cs" />
     <Compile Include="config\IGameConfig.cs" />
     <Compile Include="log\Log.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="sds\ISkillSDS.cs" />
     <Compile Include="sds\IUnitSDS.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
