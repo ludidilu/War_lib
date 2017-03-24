@@ -5,21 +5,21 @@ using System;
 
 public class Unit
 {
-    private Battle battle;
+    protected Battle battle;
 
-    private Simulator simulator;
+    protected Simulator simulator;
 
-    public bool isMine { get; private set; }
+    public bool isMine { get; protected set; }
 
-    public int uid { get; private set; }
+    public int uid { get; protected set; }
 
-    public int id { get; private set; }
+    public int id { get; protected set; }
 
-    public IUnitSDS sds { get; private set; }
+    public IUnitSDS sds { get; protected set; }
 
     public Vector2 pos
     {
-        private set
+        protected set
         {
             simulator.setAgentPosition(uid, value);
         }
@@ -32,7 +32,7 @@ public class Unit
 
     public Vector2 velocity
     {
-        private set
+        protected set
         {
             simulator.setAgentVelocity(uid, value);
         }
@@ -45,7 +45,7 @@ public class Unit
 
     public Vector2 prefVelocity
     {
-        private set
+        protected set
         {
             simulator.setAgentPrefVelocity(uid, value);
         }
@@ -56,11 +56,11 @@ public class Unit
         }
     }
 
-    public int nowHp { private set; get; }
+    public int nowHp { protected set; get; }
 
-    public double attackStep { private set; get; }
+    public double attackStep { protected set; get; }
 
-    public int targetUid { private set; get; }
+    public int targetUid { protected set; get; }
 
     internal void Init(Battle _battle, Simulator _simulator, bool _isMine, int _uid, int _id, IUnitSDS _sds, Vector2 _pos)
     {
@@ -119,7 +119,7 @@ public class Unit
         targetUid = _br.ReadInt32();
     }
 
-    private void InitSds()
+    protected void InitSds()
     {
         simulator.setAgentMaxSpeed(uid, sds.GetMoveSpeed());
         simulator.setAgentRadius(uid, sds.GetRadius());
@@ -159,7 +159,7 @@ public class Unit
         nowHp -= _damage;
     }
 
-    internal void Update()
+    internal virtual void Update()
     {
         if (attackStep > 0)
         {
@@ -254,7 +254,7 @@ public class Unit
         return nowHp > 0;
     }
 
-    private void DamageTarget(Unit _targetUnit)
+    protected void DamageTarget(Unit _targetUnit)
     {
         switch (sds.GetAttackType())
         {
@@ -334,7 +334,7 @@ public class Unit
         }
     }
 
-    private bool CheckTarget(int _uid)
+    protected bool CheckTarget(int _uid)
     {
         Unit unit = battle.unitDic[_uid];
 
