@@ -1,14 +1,7 @@
-﻿public enum SkillState
-{ 
-    ATTACH_TO_HERO,
-    DRAG_WITH_HERO,
-    ISOLATE,
-}
-
-public interface ISkillSDS
+﻿public interface ISkillSDS
 {
     int GetTime();
-    SkillState GetSkillState();
+    bool GetAttachToHero();
     double GetSpeed();
     double GetRadius();
     double GetRange();
