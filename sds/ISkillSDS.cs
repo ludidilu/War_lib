@@ -13,4 +13,5 @@ public interface ISkillSDS
     double GetRadius();
     double GetRange();
     bool GetReachTarget();
+    bool GetIsObstacle();
 }
