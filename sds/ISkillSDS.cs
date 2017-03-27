@@ -1,10 +1,9 @@
 ﻿public interface ISkillSDS
 {
-    int GetTime();
     bool GetAttachToHero();
-    double GetSpeed();
-    double GetRadius();
+    int GetTime();
     double GetRange();
+    double GetRadius();
     bool GetReachTarget();
     bool GetIsObstacle();
 }
