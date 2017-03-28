@@ -62,6 +62,8 @@ public class Unit
 
     public int targetUid { protected set; get; }
 
+    private bool controledBySkill = false;
+
     internal void Init(Battle _battle, Simulator _simulator, bool _isMine, int _uid, int _id, IUnitSDS _sds, Vector2 _pos)
     {
         battle = _battle;
@@ -75,7 +77,6 @@ public class Unit
         targetUid = -1;
 
         simulator.addAgent(uid, _pos);
-        simulator.setAgentIsMine(uid, isMine);
         InitSds();
     }
 
@@ -97,7 +98,7 @@ public class Unit
         double y = _br.ReadDouble();
 
         simulator.addAgent(uid, new Vector2(x, y));
-        simulator.setAgentIsMine(uid, isMine);
+
         InitSds();
 
         x = _br.ReadDouble();
@@ -121,6 +122,7 @@ public class Unit
 
     protected void InitSds()
     {
+        simulator.setAgentIsMine(uid, isMine);
         simulator.setAgentMaxSpeed(uid, sds.GetMoveSpeed());
         simulator.setAgentRadius(uid, sds.GetRadius());
         simulator.setAgentWeight(uid, sds.GetWeight());
@@ -159,6 +161,13 @@ public class Unit
         nowHp -= _damage;
     }
 
+    internal void SetControledBySkill(Vector2 _prefVelocity)
+    {
+        prefVelocity = _prefVelocity;
+
+        controledBySkill = true;
+    }
+
     internal virtual void Update()
     {
         if (attackStep > 0)
@@ -169,6 +178,15 @@ public class Unit
             {
                 attackStep = 0;
             }
+        }
+
+        if (controledBySkill)
+        {
+            targetUid = -1;
+
+            controledBySkill = false;
+
+            return;
         }
 
         if (targetUid != -1)
