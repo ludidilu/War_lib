@@ -61,7 +61,7 @@ public class Skill
 
     public int startRoundNum { private set; get; }
 
-    private Unit unit;
+    public Unit unit { private set; get; }
 
     internal void Init(Battle _battle, Simulator _simulator, int _roundNum, int _uid, int _id, ISkillSDS _sds, Unit _unit, Vector2 _targetPos)
     {

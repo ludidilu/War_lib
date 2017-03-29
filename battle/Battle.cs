@@ -656,6 +656,18 @@ public class Battle
 
                     _bw.Write(command.pos.y);
                 }
+                else if (data is SkillCommandData)
+                {
+                    SkillCommandData command = data as SkillCommandData;
+
+                    _bw.Write((int)CommandType.SKILL);
+
+                    _bw.Write(command.id);
+
+                    _bw.Write(command.pos.x);
+
+                    _bw.Write(command.pos.y);
+                }
             }
         }
         else
@@ -751,6 +763,18 @@ public class Battle
                         double y = _br.ReadDouble();
 
                         command = new HeroCommandData(isMine, id, new Vector2(x, y));
+
+                        break;
+
+                    case CommandType.SKILL:
+
+                        id = _br.ReadInt32();
+
+                        x = _br.ReadDouble();
+
+                        y = _br.ReadDouble();
+
+                        command = new SkillCommandData(isMine, id, new Vector2(x, y));
 
                         break;
 
@@ -1125,7 +1149,7 @@ public class Battle
             {
                 Skill skill = new Skill();
 
-                skill.Init(this, simulator, roundNum, GetUid(), _id, getSkillCallBack(_id), unit, _pos);
+                skill.Init(this, simulator, roundNum, GetUid(), unit.sds.GetSkill(), getSkillCallBack(unit.sds.GetSkill()), unit, _pos);
 
                 skillList.AddLast(skill);
             }
