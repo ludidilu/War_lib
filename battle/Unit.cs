@@ -161,11 +161,22 @@ public class Unit
         nowHp -= _damage;
     }
 
-    internal void SetControledBySkill(Vector2 _prefVelocity)
+    internal void SetControledBySkill(Vector2 _prefVelocity, double _maxSpeed)
     {
+        targetUid = -1;
+
         prefVelocity = _prefVelocity;
 
+        simulator.setAgentMaxSpeed(uid, _maxSpeed);
+
         controledBySkill = true;
+    }
+
+    internal void SetUncontroledBySkill()
+    {
+        simulator.setAgentMaxSpeed(uid, sds.GetMoveSpeed());
+
+        controledBySkill = false;
     }
 
     internal virtual void Update()
@@ -182,10 +193,6 @@ public class Unit
 
         if (controledBySkill)
         {
-            targetUid = -1;
-
-            controledBySkill = false;
-
             return;
         }
 

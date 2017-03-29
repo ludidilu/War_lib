@@ -90,9 +90,33 @@ public class Skill
 
         if (sds.GetSkillType() == SkillType.ISOLATE_WITH_OBSTACLE)
         {
-            simulator.addAgent(uid, startPos);
+            if (sds.GetMoveSpeed() > 0)
+            {
+                simulator.addAgent(uid, startPos);
+
+                prefVelocity = targetPos - startPos;
+            }
+            else
+            {
+                Vector2 nowPos;
+
+                Vector2 pref = targetPos - startPos;
+
+                double dis = pref.magnitude;
+
+                if (dis > sds.GetRange())
+                {
+                    nowPos = startPos + pref.normalized * sds.GetRange();
+                }
+                else
+                {
+                    nowPos = targetPos;
+                }
+
+                simulator.addAgent(uid, nowPos);
+            }
+
             InitSds();
-            prefVelocity = targetPos - startPos;
         }
     }
 
@@ -100,6 +124,14 @@ public class Skill
     {
         if (_roundNum - startRoundNum > sds.GetTime())
         {
+            if (sds.GetSkillType() == SkillType.CONTROL_UNIT)
+            {
+                if (battle.unitDic.ContainsKey(unit.uid))
+                {
+                    unit.SetUncontroledBySkill();
+                }
+            }
+
             return true;
         }
 
@@ -110,9 +142,25 @@ public class Skill
                 return true;
             }
 
-            unit.SetControledBySkill(targetPos - unit.pos);
+            if (sds.GetMoveSpeed() > 0)
+            {
+                unit.SetControledBySkill(targetPos - unit.pos, sds.GetMoveSpeed());
+            }
+            else
+            {
+                Vector2 pref = targetPos - unit.pos;
+
+                double dis = pref.magnitude;
+
+                if (dis > sds.GetRange())
+                {
+                    pref = pref.normalized * sds.GetRange();
+                }
+
+                unit.SetControledBySkill(pref, double.MaxValue);
+            }
         }
-        else if (sds.GetSkillType() == SkillType.ATTACK_TO_UNIT)
+        else if (sds.GetSkillType() == SkillType.ATTACH_TO_UNIT)
         {
             if (!battle.unitDic.ContainsKey(unit.uid))
             {
@@ -149,7 +197,7 @@ public class Skill
         {
             if (sds.GetMoveSpeed() > 0)
             {
-                nowPos = startPos + sds.GetMoveSpeed() * simulator.getTimeStep() * (_roundNum - startRoundNum) * (targetPos - startPos); 
+                nowPos = startPos + sds.GetMoveSpeed() * simulator.getTimeStep() * (_roundNum - startRoundNum) * (targetPos - startPos);
             }
             else
             {
@@ -167,7 +215,7 @@ public class Skill
                 }
             }
         }
-        else if(sds.GetSkillType() == SkillType.ATTACK_TO_UNIT || sds.GetSkillType() == SkillType.CONTROL_UNIT)
+        else if (sds.GetSkillType() == SkillType.ATTACH_TO_UNIT || sds.GetSkillType() == SkillType.CONTROL_UNIT)
         {
             nowPos = unit.pos;
         }

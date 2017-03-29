@@ -1,6 +1,6 @@
 ﻿public enum SkillType
 {
-    ATTACK_TO_UNIT,
+    ATTACH_TO_UNIT,
     CONTROL_UNIT,
     ISOLATE_WITH_OBSTACLE,
     ISOLATE_WITHOUT_OBSTACLE
