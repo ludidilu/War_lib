@@ -24,4 +24,5 @@ public interface IUnitSDS
     double GetAttackTypeData();
     int GetPrize();
     bool GetIsHero();
+    int GetSkill();
 }

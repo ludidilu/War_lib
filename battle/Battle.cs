@@ -99,6 +99,8 @@ public class Battle
 
     public Dictionary<int, Dictionary<int, UnitCommandData>> oUnitCommandPool = new Dictionary<int, Dictionary<int, UnitCommandData>>();//这个字典存的是所有单位命令  第一个下标是roundNum 第二个下标是commandID
 
+    public LinkedList<Skill> skillList = new LinkedList<Skill>();
+
     private int uid;
 
     private int commandID;
@@ -480,47 +482,13 @@ public class Battle
             Spawn();
         }
 
-        {
-            simulator.BuildAgentTree();
+        simulator.BuildAgentTree();
 
-            LinkedList<Unit>.Enumerator enumerator = unitList.GetEnumerator();
+        UpdateSkill();
 
-            while (enumerator.MoveNext())
-            {
-                Unit unit = enumerator.Current;
+        simulator.BuildAgentTree();
 
-                unit.Update();
-            }
-
-            simulator.BuildAgentTree();
-
-            LinkedListNode<Unit> node = unitList.First;
-
-            while (node != null)
-            {
-                LinkedListNode<Unit> tmpNode = node;
-
-                node = node.Next;
-
-                Unit unit = tmpNode.Value;
-
-                if (!unit.IsAlive())
-                {
-                    unit.Die();
-
-                    unitList.Remove(tmpNode);
-
-                    unitDic.Remove(unit.uid);
-
-                    if (unit.sds.GetIsHero())
-                    {
-                        Dictionary<int, Unit> tmpDic = unit.isMine ? mHeroPool : oHeroPool;
-
-                        tmpDic.Remove(unit.id);
-                    }
-                }
-            }
-        }
+        UpdateUnit();
 
         for (int i = 0; i < gameConfig.GetMoveTimes() - 1; i++)
         {
@@ -584,6 +552,64 @@ public class Battle
         }
 
         roundNum++;
+    }
+
+    private void UpdateSkill()
+    {
+        LinkedListNode<Skill> skillNode = skillList.First;
+
+        while (skillNode != null)
+        {
+            LinkedListNode<Skill> next = skillNode.Next;
+
+            bool b = next.Value.Update(roundNum);
+
+            if (b)
+            {
+                skillList.Remove(skillNode);
+            }
+
+            skillNode = next;
+        }
+    }
+
+    private void UpdateUnit()
+    {
+        LinkedList<Unit>.Enumerator enumerator = unitList.GetEnumerator();
+
+        while (enumerator.MoveNext())
+        {
+            Unit unit = enumerator.Current;
+
+            unit.Update();
+        }
+
+        LinkedListNode<Unit> node = unitList.First;
+
+        while (node != null)
+        {
+            LinkedListNode<Unit> tmpNode = node;
+
+            node = node.Next;
+
+            Unit unit = tmpNode.Value;
+
+            if (!unit.IsAlive())
+            {
+                unit.Die();
+
+                unitList.Remove(tmpNode);
+
+                unitDic.Remove(unit.uid);
+
+                if (unit.sds.GetIsHero())
+                {
+                    Dictionary<int, Unit> tmpDic = unit.isMine ? mHeroPool : oHeroPool;
+
+                    tmpDic.Remove(unit.id);
+                }
+            }
+        }
     }
 
     private void ServerUpdate(BinaryWriter _bw, bool _isMine)
@@ -1040,6 +1066,31 @@ public class Battle
 
             AddUnitToBattle(command.isMine, command.id, command.pos);
         }
+        else if (_commandData is SkillCommandData)
+        {
+            SkillCommandData command = _commandData as SkillCommandData;
+
+            AddSkillToBattle(command.isMine, command.id, command.pos);
+        }
+    }
+
+    private void AddSkillToBattle(bool _isMine, int _id, Vector2 _pos)
+    {
+        Dictionary<int, Unit> dic = _isMine ? mHeroPool : oHeroPool;
+
+        if (dic.ContainsKey(_id))
+        {
+            Unit unit = dic[_id];
+
+            if (unit.sds.GetSkill() != 0)
+            {
+                Skill skill = new Skill();
+
+                skill.Init(this, simulator, roundNum, GetUid(), _id, getSkillCallBack(_id), unit, _pos);
+
+                skillList.AddLast(skill);
+            }
+        }
     }
 
     private int GetUid()
@@ -1118,6 +1169,17 @@ public class Battle
                     Unit unit = enumerator.Current;
 
                     unit.WriteData(bw);
+                }
+
+                bw.Write(skillList.Count);
+
+                LinkedList<Skill>.Enumerator enumerator7 = skillList.GetEnumerator();
+
+                while (enumerator7.MoveNext())
+                {
+                    Skill skill = enumerator7.Current;
+
+                    skill.WriteData(bw);
                 }
 
                 bw.Write(mUnitPool.Count);
