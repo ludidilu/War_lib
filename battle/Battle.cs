@@ -35,7 +35,7 @@ public class HeroCommandData : CommandData
     }
 }
 
-class SkillCommandData : CommandData
+public class SkillCommandData : CommandData
 {
     public int id;
     public Vector2 pos;
@@ -98,6 +98,10 @@ public class Battle
     public Dictionary<int, Dictionary<int, UnitCommandData>> mUnitCommandPool = new Dictionary<int, Dictionary<int, UnitCommandData>>();//这个字典存的是所有单位命令  第一个下标是roundNum 第二个下标是commandID
 
     public Dictionary<int, Dictionary<int, UnitCommandData>> oUnitCommandPool = new Dictionary<int, Dictionary<int, UnitCommandData>>();//这个字典存的是所有单位命令  第一个下标是roundNum 第二个下标是commandID
+
+    public Dictionary<int, SkillCommandData> mSkillCommandPool = new Dictionary<int, SkillCommandData>();
+
+    public Dictionary<int, SkillCommandData> oSkillCommandPool = new Dictionary<int, SkillCommandData>();
 
     public LinkedList<Skill> skillList = new LinkedList<Skill>();
 
@@ -208,6 +212,10 @@ public class Battle
         mHeroCommandPool.Clear();
 
         oHeroCommandPool.Clear();
+
+        mSkillCommandPool.Clear();
+
+        oSkillCommandPool.Clear();
 
         mHeroPool.Clear();
 
@@ -1046,7 +1054,38 @@ public class Battle
         }
         else if (_commandData is SkillCommandData)
         {
+            SkillCommandData command = _commandData as SkillCommandData;
 
+            Dictionary<int, SkillCommandData> skillDic = command.isMine ? mSkillCommandPool : oSkillCommandPool;
+
+            Dictionary<int, Unit> heroDic = command.isMine ? mHeroPool : oHeroPool;
+
+            if (heroDic.ContainsKey(command.id) && !skillDic.ContainsKey(command.id))
+            {
+                if (commandPool.ContainsKey(_roundNum))
+                {
+                    Dictionary<int, CommandData> tmpDic = commandPool[_roundNum];
+
+                    if (!tmpDic.ContainsKey(_commandID))
+                    {
+                        tmpDic.Add(_commandID, _commandData);
+                    }
+                }
+                else
+                {
+                    Dictionary<int, CommandData> tmpDic = new Dictionary<int, CommandData>();
+
+                    commandPool.Add(_roundNum, tmpDic);
+
+                    tmpDic.Add(_commandID, _commandData);
+                }
+
+                skillDic.Add(command.id, command);
+            }
+            else
+            {
+                return false;
+            }
         }
 
         return true;
@@ -1090,6 +1129,15 @@ public class Battle
 
                 skillList.AddLast(skill);
             }
+        }
+
+        if (_isMine)
+        {
+            mSkillCommandPool.Remove(_id);
+        }
+        else
+        {
+            oSkillCommandPool.Remove(_id);
         }
     }
 
@@ -1226,11 +1274,31 @@ public class Battle
 
                         bw.Write(data.isMine);
 
-                        if (data is HeroCommandData)
+                        if (data is UnitCommandData)
+                        {
+                            UnitCommandData command = data as UnitCommandData;
+
+                            bw.Write((int)CommandType.UNIT);
+
+                            bw.Write(command.id);
+                        }
+                        else if (data is HeroCommandData)
                         {
                             HeroCommandData command = data as HeroCommandData;
 
                             bw.Write((int)CommandType.HERO);
+
+                            bw.Write(command.id);
+
+                            bw.Write(command.pos.x);
+
+                            bw.Write(command.pos.y);
+                        }
+                        else if (data is SkillCommandData)
+                        {
+                            SkillCommandData command = data as SkillCommandData;
+
+                            bw.Write((int)CommandType.SKILL);
 
                             bw.Write(command.id);
 
@@ -1380,6 +1448,10 @@ public class Battle
 
         oHeroCommandPool.Clear();
 
+        mSkillCommandPool.Clear();
+
+        oSkillCommandPool.Clear();
+
         mHeroPool.Clear();
 
         oHeroPool.Clear();
@@ -1486,9 +1558,25 @@ public class Battle
 
                         commandData = new HeroCommandData(isMine, id, new Vector2(x, y));
 
-                        Dictionary<int, HeroCommandData> tmpDic2 = clientIsMine ? mHeroCommandPool : oHeroCommandPool;
+                        Dictionary<int, HeroCommandData> tmpDic2 = isMine ? mHeroCommandPool : oHeroCommandPool;
 
                         tmpDic2.Add(id, commandData as HeroCommandData);
+
+                        break;
+
+                    case CommandType.SKILL:
+
+                        id = _br.ReadInt32();
+
+                        x = _br.ReadDouble();
+
+                        y = _br.ReadDouble();
+
+                        commandData = new SkillCommandData(isMine, id, new Vector2(x, y));
+
+                        Dictionary<int, SkillCommandData> tmpDic3 = isMine ? mSkillCommandPool : oSkillCommandPool;
+
+                        tmpDic3.Add(id, commandData as SkillCommandData);
 
                         break;
 
@@ -1554,6 +1642,18 @@ public class Battle
 
                     bw.Write(command.pos.y);
                 }
+                else if (_data is SkillCommandData)
+                {
+                    SkillCommandData command = _data as SkillCommandData;
+
+                    bw.Write((int)CommandType.SKILL);
+
+                    bw.Write(command.id);
+
+                    bw.Write(command.pos.x);
+
+                    bw.Write(command.pos.y);
+                }
 
                 clientSendDataCallBack(ms);
             }
@@ -1570,6 +1670,13 @@ public class Battle
     public void ClientSendHeroCommand(int _id, double _x, double _y)
     {
         HeroCommandData data = new HeroCommandData(true, _id, new Vector2(_x, _y));
+
+        ClientSendCommand(data);
+    }
+
+    public void ClientSendSkillCommand(int _id, double _x, double _y)
+    {
+        SkillCommandData data = new SkillCommandData(true, _id, new Vector2(_x, _y));
 
         ClientSendCommand(data);
     }
