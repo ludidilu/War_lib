@@ -71,6 +71,8 @@ public class Battle
 {
     internal static Func<int, IUnitSDS> getUnitCallBack;
 
+    internal static Func<int, ISkillSDS> getSkillCallBack;
+
     internal static IGameConfig gameConfig;
 
     private Action<bool, MemoryStream> serverSendDataCallBack;
@@ -128,11 +130,13 @@ public class Battle
     private Action<bool> sendCommandCallBack;
     //----
 
-    public static void Init(IGameConfig _gameConfig, Func<int, IUnitSDS> _getUnitCallBack)
+    public static void Init(IGameConfig _gameConfig, Func<int, IUnitSDS> _getUnitCallBack, Func<int, ISkillSDS> _getSkillCallBack)
     {
         gameConfig = _gameConfig;
 
         getUnitCallBack = _getUnitCallBack;
+
+        getSkillCallBack = _getSkillCallBack;
     }
 
     public void ServerInit(Action<bool, MemoryStream> _serverSendDataCallBack, Action _overCallBack)

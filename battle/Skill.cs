@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using RVO;
+﻿using RVO;
+using System.IO;
 
 
 public class Skill
@@ -18,8 +15,6 @@ public class Skill
     protected Simulator simulator;
 
     public int uid { get; protected set; }
-
-    public int heroUid { get; protected set; }
 
     public int id { get; protected set; }
 
@@ -120,6 +115,62 @@ public class Skill
         }
     }
 
+    internal void Init(Battle _battle, Simulator _simulator, BinaryReader _br)
+    {
+        battle = _battle;
+
+        simulator = _simulator;
+
+        uid = _br.ReadInt32();
+
+        id = _br.ReadInt32();
+
+        sds = Battle.getSkillCallBack(id);
+
+        startRoundNum = _br.ReadInt32();
+
+        int unitUid = _br.ReadInt32();
+
+        unit = battle.unitDic[unitUid];
+
+        if (sds.GetSkillType() == SkillType.ISOLATE_WITH_OBSTACLE)
+        {
+            double x = _br.ReadDouble();
+
+            double y = _br.ReadDouble();
+
+            simulator.addAgent(uid, new Vector2(x, y));
+
+            x = _br.ReadDouble();
+
+            y = _br.ReadDouble();
+
+            velocity = new Vector2(x, y);
+
+            x = _br.ReadDouble();
+
+            y = _br.ReadDouble();
+
+            prefVelocity = new Vector2(x, y);
+
+            InitSds();
+        }
+        else
+        {
+            double x = _br.ReadDouble();
+
+            double y = _br.ReadDouble();
+
+            startPos = new Vector2(x, y);
+
+            x = _br.ReadDouble();
+
+            y = _br.ReadDouble();
+
+            targetPos = new Vector2(x, y);
+        }
+    }
+
     internal bool Update(int _roundNum)
     {
         if (_roundNum - startRoundNum > sds.GetTime())
@@ -130,6 +181,10 @@ public class Skill
                 {
                     unit.SetUncontroledBySkill();
                 }
+            }
+            else if (sds.GetSkillType() == SkillType.ISOLATE_WITH_OBSTACLE)
+            {
+                simulator.delAgent(uid);
             }
 
             return true;
@@ -222,6 +277,42 @@ public class Skill
         else
         {
             nowPos = pos;
+        }
+    }
+
+    internal void WriteData(BinaryWriter _bw)
+    {
+        _bw.Write(uid);
+
+        _bw.Write(id);
+
+        _bw.Write(startRoundNum);
+
+        _bw.Write(unit.uid);
+
+        if (sds.GetSkillType() == SkillType.ISOLATE_WITH_OBSTACLE)
+        {
+            _bw.Write(pos.x);
+
+            _bw.Write(pos.y);
+
+            _bw.Write(velocity.x);
+
+            _bw.Write(velocity.y);
+
+            _bw.Write(prefVelocity.x);
+
+            _bw.Write(prefVelocity.y);
+        }
+        else
+        {
+            _bw.Write(startPos.x);
+
+            _bw.Write(startPos.y);
+
+            _bw.Write(targetPos.x);
+
+            _bw.Write(targetPos.y);
         }
     }
 }
