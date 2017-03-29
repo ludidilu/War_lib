@@ -562,7 +562,7 @@ public class Battle
         {
             LinkedListNode<Skill> next = skillNode.Next;
 
-            bool b = next.Value.Update(roundNum);
+            bool b = skillNode.Value.Update(roundNum);
 
             if (b)
             {
@@ -588,17 +588,15 @@ public class Battle
 
         while (node != null)
         {
-            LinkedListNode<Unit> tmpNode = node;
+            LinkedListNode<Unit> next = node.Next;
 
-            node = node.Next;
-
-            Unit unit = tmpNode.Value;
+            Unit unit = node.Value;
 
             if (!unit.IsAlive())
             {
                 unit.Die();
 
-                unitList.Remove(tmpNode);
+                unitList.Remove(node);
 
                 unitDic.Remove(unit.uid);
 
@@ -609,6 +607,8 @@ public class Battle
                     tmpDic.Remove(unit.id);
                 }
             }
+
+            node = next;
         }
     }
 
