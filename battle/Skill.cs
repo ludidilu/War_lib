@@ -294,22 +294,22 @@ public class Skill
 
     private bool CheckTarget(Unit _target)
     {
-        if (sds.GetSkillEffectTarget() == SkillEffectTarget.MY_UNITS && _target.isMine != unit.isMine)
+        if (sds.GetEffectTarget() == SkillEffectTarget.MY_UNITS && _target.isMine != unit.isMine)
         {
             return false;
         }
 
-        if (sds.GetSkillEffectTarget() == SkillEffectTarget.OPP_UNITS && _target.isMine == unit.isMine)
+        if (sds.GetEffectTarget() == SkillEffectTarget.OPP_UNITS && _target.isMine == unit.isMine)
         {
             return false;
         }
 
-        if (sds.GetTargetType() == UnitTargetType.GROUND_UNIT && _target.sds.GetIsAirUnit())
+        if (sds.GetEffectTargetType() == UnitTargetType.GROUND_UNIT && _target.sds.GetIsAirUnit())
         {
             return false;
         }
 
-        if (sds.GetTargetType() == UnitTargetType.AIR_UNIT && !_target.sds.GetIsAirUnit())
+        if (sds.GetEffectTargetType() == UnitTargetType.AIR_UNIT && !_target.sds.GetIsAirUnit())
         {
             return false;
         }
@@ -319,11 +319,11 @@ public class Skill
 
     private void Effect(Unit _target)
     {
-        switch (sds.GetSkillEffect())
+        switch (sds.GetEffect())
         {
             case SkillEffect.DAMAGE:
 
-                _target.BeDamage(sds.GetSkillData()[0]);
+                _target.BeDamage(sds.GetEffectData()[0]);
 
                 break;
         }
