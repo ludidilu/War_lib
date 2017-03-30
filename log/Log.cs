@@ -2,18 +2,28 @@
 
 public class Log
 {
-    private static Action<string> logCallBack;
+    private static Action<string> logPrintCallBack;
+    private static Action<string> logWriteCallBack;
 
-    public static void Init(Action<string> _logCallBack)
+    public static void Init(Action<string> _logPrintCallBack, Action<string> _logWriteCallBack)
     {
-        logCallBack = _logCallBack;
+        logPrintCallBack = _logPrintCallBack;
+        logWriteCallBack = _logWriteCallBack;
+    }
+
+    public static void Print(string _str)
+    {
+        if (logPrintCallBack != null)
+        {
+            logPrintCallBack(_str);
+        }
     }
 
     public static void Write(string _str)
     {
-        if (logCallBack != null)
+        if (logWriteCallBack != null)
         {
-            logCallBack(_str);
+            logWriteCallBack(_str);
         }
     }
 }

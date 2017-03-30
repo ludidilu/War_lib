@@ -8,7 +8,7 @@ public class Skill
 
     public Vector2 startPos { private set; get; }
 
-    public Vector2 endPos { private set; get; }
+    public Vector2 targetPos { private set; get; }
 
     protected Battle battle;
 
@@ -56,8 +56,6 @@ public class Skill
             return simulator.getAgentPrefVelocity(uid);
         }
     }
-
-    public Vector2 targetPos { private set; get; }
 
     public int startRoundNum { private set; get; }
 

@@ -217,6 +217,8 @@ public class Battle
 
         oSkillCommandPool.Clear();
 
+        skillList.Clear();
+
         mHeroPool.Clear();
 
         oHeroPool.Clear();
@@ -508,6 +510,15 @@ public class Battle
         simulator.BuildAgentTree();
 
         double result = simulator.doStepFinal();
+
+        Log.Write("round:" + roundNum + "------------------\n");
+
+        var tt = unitList.GetEnumerator();
+
+        while (tt.MoveNext())
+        {
+            Log.Write("uid:" + tt.Current.uid + "  hp:" + tt.Current.nowHp + "  x:" + tt.Current.pos.x + "  y:" + tt.Current.pos.y + "\n");
+        }
         //----
 
         mMoney += gameConfig.GetMoneyPerStep();
@@ -856,7 +867,7 @@ public class Battle
             }
             else
             {
-                Log.Write("我上次收到服务器的同步包回合数是:" + serverRoundNum + "  这次收到服务器的同步包回合数是:" + tmpServerRoundNum);
+                Log.Print("我上次收到服务器的同步包回合数是:" + serverRoundNum + "  这次收到服务器的同步包回合数是:" + tmpServerRoundNum);
 
                 int[] op = new int[0];
 
@@ -868,14 +879,14 @@ public class Battle
 
         if (roundDiff < 0)
         {
-            Log.Write("我日  服务器时间竟然比我快 myRound:" + roundNum + " serverRound:" + serverRoundNum + "  roundDiff:" + roundDiff);
+            Log.Print("我日  服务器时间竟然比我快 myRound:" + roundNum + " serverRound:" + serverRoundNum + "  roundDiff:" + roundDiff);
 
             for (int i = 0; i < -roundDiff; i++)
             {
                 Update();
             }
 
-            Log.Write("我日  我追完了  myRound:" + roundNum + "  roundDiff:" + roundDiff);
+            Log.Print("我日  我追完了  myRound:" + roundNum + "  roundDiff:" + roundDiff);
         }
         else if (roundDiff > 0)
         {
@@ -883,7 +894,7 @@ public class Battle
             {
                 if (commandData != null || mUnitCommandData != null || oUnitCommandData != null)
                 {
-                    Log.Write("myRound:" + roundNum + "  serverRound:" + serverRoundNum + "  我日   延迟已经" + roundDiff + "回合了  而且还有玩家操作  没救了  让服务器重新刷数据吧" + "  roundDiff:" + roundDiff);
+                    Log.Print("myRound:" + roundNum + "  serverRound:" + serverRoundNum + "  我日   延迟已经" + roundDiff + "回合了  而且还有玩家操作  没救了  让服务器重新刷数据吧" + "  roundDiff:" + roundDiff);
 
                     ClientRequestRefresh();
 
@@ -891,7 +902,7 @@ public class Battle
                 }
                 else
                 {
-                    Log.Write("myRound:" + roundNum + "  serverRound:" + serverRoundNum + "  我日   延迟已经" + roundDiff + "回合了  还好没有动作" + "  roundDiff:" + roundDiff);
+                    Log.Print("myRound:" + roundNum + "  serverRound:" + serverRoundNum + "  我日   延迟已经" + roundDiff + "回合了  还好没有动作" + "  roundDiff:" + roundDiff);
                 }
             }
         }
@@ -1205,7 +1216,7 @@ public class Battle
 
     public void ServerRefresh(bool _isMine)
     {
-        Log.Write("ServerRefresh:" + roundNum + "   isMine:" + _isMine);
+        Log.Print("ServerRefresh:" + roundNum + "   isMine:" + _isMine);
 
         using (MemoryStream ms = new MemoryStream())
         {
@@ -1476,6 +1487,8 @@ public class Battle
 
         oSkillCommandPool.Clear();
 
+        skillList.Clear();
+
         mHeroPool.Clear();
 
         oHeroPool.Clear();
@@ -1490,7 +1503,7 @@ public class Battle
 
         serverRoundNum = roundNum = _br.ReadInt32();
 
-        Log.Write("client refresh data " + roundNum + "  clientIsMine:" + clientIsMine);
+        Log.Print("client refresh data " + roundNum + "  clientIsMine:" + clientIsMine);
 
         uid = _br.ReadInt32();
 
@@ -1516,6 +1529,17 @@ public class Battle
 
                 tmpDic.Add(unit.id, unit);
             }
+        }
+
+        num = _br.ReadInt32();
+
+        for (int i = 0; i < num; i++)
+        {
+            Skill skill = new Skill();
+
+            skill.Init(this, simulator, _br);
+
+            skillList.AddLast(skill);
         }
 
         num = _br.ReadInt32();
