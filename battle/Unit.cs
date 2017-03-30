@@ -363,25 +363,22 @@ public class Unit
     {
         Unit unit = battle.unitDic[_uid];
 
-        if (unit.IsAlive() && unit.isMine != isMine)
+        if (!unit.IsAlive() || unit.isMine == isMine)
         {
-            if (unit.sds.GetIsAirUnit())
-            {
-                if (sds.GetCanAttackAirUnit())
-                {
-                    return true;
-                }
-            }
-            else
-            {
-                if (sds.GetCanAttackGroundUnit())
-                {
-                    return true;
-                }
-            }
+            return false;
         }
 
-        return false;
+        if (sds.GetTargetType() == UnitTargetType.AIR_UNIT && !unit.sds.GetIsAirUnit())
+        {
+            return false;
+        }
+
+        if (sds.GetTargetType() == UnitTargetType.GROUND_UNIT && unit.sds.GetIsAirUnit())
+        {
+            return false;
+        }
+
+        return true;
     }
 
     internal void Die()

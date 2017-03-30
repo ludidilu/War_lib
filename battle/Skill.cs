@@ -1,6 +1,6 @@
 ﻿using RVO;
 using System.IO;
-
+using System.Collections.Generic;
 
 public class Skill
 {
@@ -83,7 +83,7 @@ public class Skill
 
         targetPos = _targetPos;
 
-        if (sds.GetSkillType() == SkillType.ISOLATE_WITH_OBSTACLE)
+        if (sds.GetObstacleRadius() > 0)
         {
             if (sds.GetMoveSpeed() > 0)
             {
@@ -133,7 +133,7 @@ public class Skill
 
         unit = battle.unitDic[unitUid];
 
-        if (sds.GetSkillType() == SkillType.ISOLATE_WITH_OBSTACLE)
+        if (sds.GetObstacleRadius() > 0)
         {
             double x = _br.ReadDouble();
 
@@ -182,7 +182,7 @@ public class Skill
                     unit.SetUncontroledBySkill();
                 }
             }
-            else if (sds.GetSkillType() == SkillType.ISOLATE_WITH_OBSTACLE)
+            else if (sds.GetObstacleRadius() > 0)
             {
                 simulator.delAgent(uid);
             }
@@ -231,7 +231,7 @@ public class Skill
     private void InitSds()
     {
         simulator.setAgentIsMine(uid, unit.isMine);
-        simulator.setAgentRadius(uid, sds.GetRadius());
+        simulator.setAgentRadius(uid, sds.GetObstacleRadius());
 
         if (sds.GetMoveSpeed() > 0)
         {
@@ -248,7 +248,7 @@ public class Skill
     {
         Vector2 nowPos;
 
-        if (sds.GetSkillType() == SkillType.ISOLATE_WITHOUT_OBSTACLE)
+        if (sds.GetSkillType() == SkillType.ISOLATE && sds.GetObstacleRadius() == 0)
         {
             Vector2 pref = targetPos - startPos;
 
@@ -278,6 +278,55 @@ public class Skill
         {
             nowPos = pos;
         }
+
+        List<int> tmpList = simulator.computePointNeightbors(nowPos, sds.GetEffectRadius());
+
+        for (int i = 0; i < tmpList.Count; i++)
+        {
+            Unit target = battle.unitDic[tmpList[i]];
+
+            if (CheckTarget(target))
+            {
+                Effect(target);
+            }
+        }
+    }
+
+    private bool CheckTarget(Unit _target)
+    {
+        if (sds.GetSkillEffectTarget() == SkillEffectTarget.MY_UNITS && _target.isMine != unit.isMine)
+        {
+            return false;
+        }
+
+        if (sds.GetSkillEffectTarget() == SkillEffectTarget.OPP_UNITS && _target.isMine == unit.isMine)
+        {
+            return false;
+        }
+
+        if (sds.GetTargetType() == UnitTargetType.GROUND_UNIT && _target.sds.GetIsAirUnit())
+        {
+            return false;
+        }
+
+        if (sds.GetTargetType() == UnitTargetType.AIR_UNIT && !_target.sds.GetIsAirUnit())
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private void Effect(Unit _target)
+    {
+        switch (sds.GetSkillEffect())
+        {
+            case SkillEffect.DAMAGE:
+
+                _target.BeDamage(sds.GetSkillData()[0]);
+
+                break;
+        }
     }
 
     internal void WriteData(BinaryWriter _bw)
@@ -290,7 +339,7 @@ public class Skill
 
         _bw.Write(unit.uid);
 
-        if (sds.GetSkillType() == SkillType.ISOLATE_WITH_OBSTACLE)
+        if (sds.GetObstacleRadius() > 0)
         {
             _bw.Write(pos.x);
 

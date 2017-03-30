@@ -2,8 +2,19 @@
 {
     ATTACH_TO_UNIT,
     CONTROL_UNIT,
-    ISOLATE_WITH_OBSTACLE,
-    ISOLATE_WITHOUT_OBSTACLE
+    ISOLATE,
+}
+
+public enum SkillEffect
+{
+    DAMAGE,
+}
+
+public enum SkillEffectTarget
+{
+    MY_UNITS,
+    OPP_UNITS,
+    BOTH
 }
 
 public interface ISkillSDS
@@ -12,5 +23,10 @@ public interface ISkillSDS
     int GetTime();
     double GetMoveSpeed();
     double GetRange();
-    double GetRadius();
+    double GetObstacleRadius();
+    double GetEffectRadius();
+    SkillEffect GetSkillEffect();
+    SkillEffectTarget GetSkillEffectTarget();
+    UnitTargetType GetTargetType();
+    int[] GetSkillData();
 }
