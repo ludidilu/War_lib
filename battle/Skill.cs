@@ -250,14 +250,14 @@ public class Skill
 
         if (sds.GetSkillType() == SkillType.ISOLATE_WITHOUT_OBSTACLE)
         {
+            Vector2 pref = targetPos - startPos;
+
             if (sds.GetMoveSpeed() > 0)
             {
-                nowPos = startPos + sds.GetMoveSpeed() * simulator.getTimeStep() * (_roundNum - startRoundNum) * (targetPos - startPos);
+                nowPos = startPos + sds.GetMoveSpeed() * simulator.getTimeStep() * (_roundNum - startRoundNum) * pref.normalized;
             }
             else
             {
-                Vector2 pref = targetPos - startPos;
-
                 double dis = pref.magnitude;
 
                 if (dis > sds.GetRange())
