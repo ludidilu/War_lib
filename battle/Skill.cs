@@ -81,6 +81,8 @@ public class Skill
 
         targetPos = _targetPos;
 
+        unit.CastSkill();
+
         if (sds.GetObstacleRadius() > 0)
         {
             if (sds.GetMoveSpeed() > 0)

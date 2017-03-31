@@ -1097,6 +1097,13 @@ public class Battle
 
             if (heroDic.ContainsKey(command.id) && !skillDic.ContainsKey(command.id))
             {
+                Unit hero = heroDic[command.id];
+
+                if (hero.sds.GetSkill() == 0 || hero.skillCd > 0)
+                {
+                    return false;
+                }
+
                 if (commandPool.ContainsKey(_roundNum))
                 {
                     Dictionary<int, CommandData> tmpDic = commandPool[_roundNum];
@@ -1660,6 +1667,8 @@ public class Battle
                 tmpDic.Add(tmpCommandID, new UnitCommandData(clientIsMine, id));
             }
         }
+
+        updateCallBack();
     }
 
     private void ClientSendCommand(CommandData _data)

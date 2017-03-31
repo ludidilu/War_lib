@@ -19,6 +19,7 @@ public enum SkillEffectTarget
 
 public interface ISkillSDS
 {
+    int GetCd();
     SkillType GetSkillType();
     int GetTime();
     double GetMoveSpeed();

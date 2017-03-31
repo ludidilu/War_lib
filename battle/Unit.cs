@@ -62,6 +62,8 @@ public class Unit
 
     public int targetUid { protected set; get; }
 
+    public int skillCd { protected set; get; }
+
     private bool controledBySkill = false;
 
     internal void Init(Battle _battle, Simulator _simulator, bool _isMine, int _uid, int _id, IUnitSDS _sds, Vector2 _pos)
@@ -75,6 +77,11 @@ public class Unit
         nowHp = sds.GetHp();
         attackStep = 0;
         targetUid = -1;
+
+        if (sds.GetSkill() != 0)
+        {
+            CastSkill();
+        }
 
         simulator.addAgent(uid, _pos);
         InitSds();
@@ -118,6 +125,11 @@ public class Unit
         attackStep = _br.ReadDouble();
 
         targetUid = _br.ReadInt32();
+
+        if (sds.GetSkill() != 0)
+        {
+            skillCd = _br.ReadInt32();
+        }
     }
 
     protected void InitSds()
@@ -154,6 +166,11 @@ public class Unit
         _bw.Write(attackStep);
 
         _bw.Write(targetUid);
+
+        if (sds.GetSkill() != 0)
+        {
+            _bw.Write(skillCd);
+        }
     }
 
     internal void BeDamage(int _damage)
@@ -179,6 +196,13 @@ public class Unit
         controledBySkill = false;
     }
 
+    internal void CastSkill()
+    {
+        ISkillSDS skillSDS = Battle.getSkillCallBack(sds.GetSkill());
+
+        skillCd = skillSDS.GetCd();
+    }
+
     internal virtual void Update()
     {
         if (attackStep > 0)
@@ -189,6 +213,11 @@ public class Unit
             {
                 attackStep = 0;
             }
+        }
+
+        if (skillCd > 0)
+        {
+            skillCd--;
         }
 
         if (controledBySkill)
