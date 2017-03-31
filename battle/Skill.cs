@@ -20,20 +20,53 @@ public class Skill
 
     public Vector2 pos
     {
-        protected set
+        private set
         {
             simulator.setAgentPosition(uid, value);
         }
 
         get
         {
-            return simulator.getAgentPosition(uid);
+            Vector2 nowPos;
+
+            if (sds.GetSkillType() == SkillType.ISOLATE && sds.GetObstacleRadius() == 0)
+            {
+                Vector2 pref = targetPos - startPos;
+
+                if (sds.GetMoveSpeed() > 0)
+                {
+                    nowPos = startPos + sds.GetMoveSpeed() * simulator.getTimeStep() * (battle.roundNum - startRoundNum) * pref.normalized;
+                }
+                else
+                {
+                    double dis = pref.magnitude;
+
+                    if (dis > sds.GetRange())
+                    {
+                        nowPos = startPos + pref.normalized * sds.GetRange();
+                    }
+                    else
+                    {
+                        nowPos = targetPos;
+                    }
+                }
+            }
+            else if (sds.GetSkillType() == SkillType.ATTACH_TO_UNIT || sds.GetSkillType() == SkillType.CONTROL_UNIT)
+            {
+                nowPos = unit.pos;
+            }
+            else
+            {
+                nowPos = simulator.getAgentPosition(uid);
+            }
+
+            return nowPos;
         }
     }
 
-    public Vector2 velocity
+    protected Vector2 velocity
     {
-        protected set
+        set
         {
             simulator.setAgentVelocity(uid, value);
         }
@@ -44,9 +77,9 @@ public class Skill
         }
     }
 
-    public Vector2 prefVelocity
+    protected Vector2 prefVelocity
     {
-        protected set
+        set
         {
             simulator.setAgentPrefVelocity(uid, value);
         }
@@ -171,9 +204,35 @@ public class Skill
         }
     }
 
-    internal bool Update(int _roundNum)
+    internal void Update()
     {
-        if (_roundNum - startRoundNum > sds.GetTime())
+        if (sds.GetSkillType() == SkillType.CONTROL_UNIT)
+        {
+            if (sds.GetMoveSpeed() > 0)
+            {
+                unit.SetControledBySkill(targetPos - unit.pos, sds.GetMoveSpeed());
+            }
+            else
+            {
+                Vector2 pref = targetPos - unit.pos;
+
+                double dis = pref.magnitude;
+
+                if (dis > sds.GetRange())
+                {
+                    pref = pref.normalized * sds.GetRange();
+                }
+
+                unit.SetControledBySkill(pref, double.MaxValue);
+            }
+        }
+
+        TakeEffect();
+    }
+
+    internal bool CheckEnd()
+    {
+        if (battle.roundNum - startRoundNum == sds.GetTime())
         {
             if (sds.GetSkillType() == SkillType.CONTROL_UNIT)
             {
@@ -196,24 +255,6 @@ public class Skill
             {
                 return true;
             }
-
-            if (sds.GetMoveSpeed() > 0)
-            {
-                unit.SetControledBySkill(targetPos - unit.pos, sds.GetMoveSpeed());
-            }
-            else
-            {
-                Vector2 pref = targetPos - unit.pos;
-
-                double dis = pref.magnitude;
-
-                if (dis > sds.GetRange())
-                {
-                    pref = pref.normalized * sds.GetRange();
-                }
-
-                unit.SetControledBySkill(pref, double.MaxValue);
-            }
         }
         else if (sds.GetSkillType() == SkillType.ATTACH_TO_UNIT)
         {
@@ -222,8 +263,6 @@ public class Skill
                 return true;
             }
         }
-
-        TakeEffect(_roundNum);
 
         return false;
     }
@@ -244,42 +283,9 @@ public class Skill
         }
     }
 
-    private void TakeEffect(int _roundNum)
+    private void TakeEffect()
     {
-        Vector2 nowPos;
-
-        if (sds.GetSkillType() == SkillType.ISOLATE && sds.GetObstacleRadius() == 0)
-        {
-            Vector2 pref = targetPos - startPos;
-
-            if (sds.GetMoveSpeed() > 0)
-            {
-                nowPos = startPos + sds.GetMoveSpeed() * simulator.getTimeStep() * (_roundNum - startRoundNum) * pref.normalized;
-            }
-            else
-            {
-                double dis = pref.magnitude;
-
-                if (dis > sds.GetRange())
-                {
-                    nowPos = startPos + pref.normalized * sds.GetRange();
-                }
-                else
-                {
-                    nowPos = targetPos;
-                }
-            }
-        }
-        else if (sds.GetSkillType() == SkillType.ATTACH_TO_UNIT || sds.GetSkillType() == SkillType.CONTROL_UNIT)
-        {
-            nowPos = unit.pos;
-        }
-        else
-        {
-            nowPos = pos;
-        }
-
-        List<int> tmpList = simulator.computePointNeightbors(nowPos, sds.GetEffectRadius());
+        List<int> tmpList = simulator.computePointNeightbors(pos, sds.GetEffectRadius());
 
         for (int i = 0; i < tmpList.Count; i++)
         {
@@ -341,9 +347,11 @@ public class Skill
 
         if (sds.GetObstacleRadius() > 0)
         {
-            _bw.Write(pos.x);
+            Vector2 tmpPos = pos;
 
-            _bw.Write(pos.y);
+            _bw.Write(tmpPos.x);
+
+            _bw.Write(tmpPos.y);
 
             _bw.Write(velocity.x);
 

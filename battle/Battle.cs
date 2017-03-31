@@ -494,11 +494,11 @@ public class Battle
 
         simulator.BuildAgentTree();
 
-        UpdateSkill();
+        UpdateSkill();//use tree
 
-        simulator.BuildAgentTree();
+        UpdateUnit();//use tree
 
-        UpdateUnit();
+        CheckSkillEnd();//destroy tree
 
         for (int i = 0; i < gameConfig.GetMoveTimes() - 1; i++)
         {
@@ -575,13 +575,23 @@ public class Battle
 
     private void UpdateSkill()
     {
+        LinkedList<Skill>.Enumerator enumerator = skillList.GetEnumerator();
+
+        while (enumerator.MoveNext())
+        {
+            enumerator.Current.Update();
+        }
+    }
+
+    private void CheckSkillEnd()
+    {
         LinkedListNode<Skill> skillNode = skillList.First;
 
         while (skillNode != null)
         {
             LinkedListNode<Skill> next = skillNode.Next;
 
-            bool b = skillNode.Value.Update(roundNum);
+            bool b = skillNode.Value.CheckEnd();
 
             if (b)
             {
