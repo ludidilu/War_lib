@@ -111,7 +111,7 @@ public class Battle
 
     private Simulator simulator;
 
-    private int roundNum;
+    public int roundNum { private set; get; }
 
     private Action overCallBack;
 
