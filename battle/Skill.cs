@@ -188,7 +188,7 @@ public class Skill
 
             InitSds();
         }
-        else
+        else if (sds.GetSkillType() == SkillType.ISOLATE)
         {
             double x = _br.ReadDouble();
 
@@ -199,6 +199,14 @@ public class Skill
             x = _br.ReadDouble();
 
             y = _br.ReadDouble();
+
+            targetPos = new Vector2(x, y);
+        }
+        else if (sds.GetSkillType() == SkillType.CONTROL_UNIT)
+        {
+            double x = _br.ReadDouble();
+
+            double y = _br.ReadDouble();
 
             targetPos = new Vector2(x, y);
         }
@@ -361,12 +369,18 @@ public class Skill
 
             _bw.Write(prefVelocity.y);
         }
-        else
+        else if (sds.GetSkillType() == SkillType.ISOLATE)
         {
             _bw.Write(startPos.x);
 
             _bw.Write(startPos.y);
 
+            _bw.Write(targetPos.x);
+
+            _bw.Write(targetPos.y);
+        }
+        else if (sds.GetSkillType() == SkillType.CONTROL_UNIT)
+        {
             _bw.Write(targetPos.x);
 
             _bw.Write(targetPos.y);

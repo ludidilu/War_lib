@@ -31,4 +31,5 @@ public interface IUnitSDS
     int GetPrize();
     bool GetIsHero();
     int GetSkill();
+    int GetSpawnSkill();
 }

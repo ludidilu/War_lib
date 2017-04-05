@@ -295,7 +295,7 @@ public class Battle
         }
     }
 
-    private Unit AddUnitToBattle(bool _isMine, int _id, Vector2 _pos)
+    private void AddUnitToBattle(bool _isMine, int _id, Vector2 _pos)
     {
         Unit unit = new Unit();
 
@@ -328,8 +328,6 @@ public class Battle
 
             tmpDic2.Remove(_id);
         }
-
-        return unit;
     }
 
     public void Update()
@@ -1156,6 +1154,8 @@ public class Battle
             HeroCommandData command = _commandData as HeroCommandData;
 
             AddUnitToBattle(command.isMine, command.id, command.pos);
+
+            AddSpawnSkillToBattle(command.isMine, command.id, command.pos);
         }
         else if (_commandData is SkillCommandData)
         {
@@ -1190,6 +1190,22 @@ public class Battle
         else
         {
             oSkillCommandPool.Remove(_id);
+        }
+    }
+
+    private void AddSpawnSkillToBattle(bool _isMine, int _id, Vector2 _pos)
+    {
+        Dictionary<int, Unit> dic = _isMine ? mHeroPool : oHeroPool;
+
+        Unit unit = dic[_id];
+
+        if (unit.sds.GetSpawnSkill() != 0)
+        {
+            Skill skill = new Skill();
+
+            skill.Init(this, simulator, roundNum, GetUid(), unit.sds.GetSpawnSkill(), getSkillCallBack(unit.sds.GetSpawnSkill()), unit, _pos);
+
+            skillList.AddLast(skill);
         }
     }
 
