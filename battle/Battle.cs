@@ -634,6 +634,10 @@ public class Battle
                     tmpDic.Remove(unit.id);
                 }
             }
+            else
+            {
+                unit.CheckHpOverflow();
+            }
 
             node = next;
         }

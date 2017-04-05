@@ -414,4 +414,12 @@ public class Unit
     {
         simulator.delAgent(uid);
     }
+
+    internal void CheckHpOverflow()
+    {
+        if (nowHp > sds.GetHp())
+        {
+            nowHp = sds.GetHp();
+        }
+    }
 }
