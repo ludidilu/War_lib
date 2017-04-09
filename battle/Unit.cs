@@ -64,15 +64,18 @@ public class Unit
 
     public int skillCd { protected set; get; }
 
+    private bool isBase;
+
     private bool controledBySkill = false;
 
-    internal void Init(Battle _battle, Simulator _simulator, bool _isMine, int _uid, int _id, IUnitSDS _sds, Vector2 _pos)
+    internal void Init(Battle _battle, Simulator _simulator, bool _isMine, int _uid, int _id, bool _isBase, IUnitSDS _sds, Vector2 _pos)
     {
         battle = _battle;
         simulator = _simulator;
         isMine = _isMine;
         uid = _uid;
         id = _id;
+        isBase = _isBase;
         sds = _sds;
         nowHp = sds.GetHp();
         attackStep = 0;
@@ -97,6 +100,8 @@ public class Unit
         isMine = _br.ReadBoolean();
 
         id = _br.ReadInt32();
+
+        isBase = _br.ReadBoolean();
 
         sds = Battle.getUnitCallBack(id);
 
@@ -138,7 +143,19 @@ public class Unit
         simulator.setAgentMaxSpeed(uid, sds.GetMoveSpeed());
         simulator.setAgentRadius(uid, sds.GetRadius());
         simulator.setAgentWeight(uid, sds.GetWeight());
-        simulator.setAgentType(uid, sds.GetIsAirUnit() ? AgentType.AirUnit : AgentType.GroundUnit);
+
+        if (sds.GetUnitType() == UnitType.AIR_UNIT)
+        {
+            simulator.setAgentType(uid, AgentType.AirUnit);
+        }
+        else if (sds.GetUnitType() == UnitType.GROUND_UNIT)
+        {
+            simulator.setAgentType(uid, AgentType.GroundUnit);
+        }
+        else
+        {
+            simulator.setAgentType(uid, AgentType.Building);
+        }
     }
 
     internal void WriteData(BinaryWriter _bw)
@@ -148,6 +165,8 @@ public class Unit
         _bw.Write(isMine);
 
         _bw.Write(id);
+
+        _bw.Write(isBase);
 
         _bw.Write(pos.x);
 
@@ -285,21 +304,21 @@ public class Unit
 
                 prefVelocity = Vector2.zero;
             }
-            else
+            else if (sds.GetUnitType() != UnitType.BUILDING)
             {
                 prefVelocity = targetUnit.pos - pos;
             }
-
-            return;
         }
-
-        if (isMine)
+        else if (sds.GetUnitType() != UnitType.BUILDING)
         {
-            prefVelocity = new Vector2(1000, 0);
-        }
-        else
-        {
-            prefVelocity = new Vector2(-1000, 0);
+            if (isMine)
+            {
+                prefVelocity = new Vector2(10000, 0);
+            }
+            else
+            {
+                prefVelocity = new Vector2(-10000, 0);
+            }
         }
     }
 
@@ -397,12 +416,7 @@ public class Unit
             return false;
         }
 
-        if (sds.GetTargetType() == UnitTargetType.AIR_UNIT && !unit.sds.GetIsAirUnit())
-        {
-            return false;
-        }
-
-        if (sds.GetTargetType() == UnitTargetType.GROUND_UNIT && unit.sds.GetIsAirUnit())
+        if (Array.IndexOf(sds.GetTargetType(), unit.sds.GetUnitType()) == -1)
         {
             return false;
         }
@@ -410,9 +424,11 @@ public class Unit
         return true;
     }
 
-    internal void Die()
+    internal bool Die()
     {
         simulator.delAgent(uid);
+
+        return isBase;
     }
 
     internal void CheckHpOverflow()

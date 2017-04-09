@@ -1,6 +1,7 @@
 ﻿using RVO;
 using System.IO;
 using System.Collections.Generic;
+using System;
 
 public class Skill
 {
@@ -318,12 +319,7 @@ public class Skill
             return false;
         }
 
-        if (sds.GetEffectTargetType() == UnitTargetType.GROUND_UNIT && _target.sds.GetIsAirUnit())
-        {
-            return false;
-        }
-
-        if (sds.GetEffectTargetType() == UnitTargetType.AIR_UNIT && !_target.sds.GetIsAirUnit())
+        if (Array.IndexOf(sds.GetEffectTargetType(), _target.sds.GetUnitType()) == -1)
         {
             return false;
         }

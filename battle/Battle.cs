@@ -65,6 +65,7 @@ enum S2CCommand
     REFRESH,
     UPDATE,
     ACTION_OK,
+    BATTLE_OVER,
 }
 
 public class Battle
@@ -113,8 +114,6 @@ public class Battle
 
     public int roundNum { private set; get; }
 
-    private Action overCallBack;
-
     private Random random;
 
     public int mMoney { private set; get; }
@@ -134,6 +133,7 @@ public class Battle
     private Dictionary<int, double> resultDic = new Dictionary<int, double>();
     private Action updateCallBack;
     private Action<bool> sendCommandCallBack;
+    private Action<bool, bool> overCallBack;
     //----
 
     public static void Init(IGameConfig _gameConfig, Func<int, IUnitSDS> _getUnitCallBack, Func<int, ISkillSDS> _getSkillCallBack)
@@ -145,7 +145,7 @@ public class Battle
         getSkillCallBack = _getSkillCallBack;
     }
 
-    public void ServerInit(Action<bool, MemoryStream> _serverSendDataCallBack, Action _overCallBack)
+    public void ServerInit(Action<bool, MemoryStream> _serverSendDataCallBack)
     {
         isClient = false;
 
@@ -153,12 +153,10 @@ public class Battle
 
         serverSendDataCallBack = _serverSendDataCallBack;
 
-        overCallBack = _overCallBack;
-
         InitSimulator();
     }
 
-    public void ClientInit(Action<MemoryStream> _clientSendDataCallBack, Action _updateCallBack, Action _overCallBack, Action<bool> _sendCommandCallBack)
+    public void ClientInit(Action<MemoryStream> _clientSendDataCallBack, Action _updateCallBack, Action<bool> _sendCommandCallBack, Action<bool, bool> _overCallBack)
     {
         isClient = true;
 
@@ -166,9 +164,9 @@ public class Battle
 
         updateCallBack = _updateCallBack;
 
-        overCallBack = _overCallBack;
-
         sendCommandCallBack = _sendCommandCallBack;
+
+        overCallBack = _overCallBack;
 
         InitSimulator();
     }
@@ -178,6 +176,10 @@ public class Battle
         uid = commandID = roundNum = 1;
 
         mShowMoney = oShowMoney = mMoney = oMoney = gameConfig.GetDefaultMoney();
+
+        AddUnitToBattle(true, gameConfig.GetBaseID(), true, new Vector2(-gameConfig.GetBaseX(), -gameConfig.GetBaseY()));
+
+        AddUnitToBattle(false, gameConfig.GetBaseID(), true, new Vector2(gameConfig.GetBaseX(), gameConfig.GetBaseY()));
     }
 
     private void InitSimulator()
@@ -228,8 +230,6 @@ public class Battle
         oUnitCommandPool.Clear();
 
         simulator.ClearAgents();
-
-        overCallBack();
     }
 
     private void AddUnitToPool(bool _isMine, int _id)
@@ -268,7 +268,7 @@ public class Battle
 
                 Vector2 pos = new Vector2(posX, posY);
 
-                AddUnitToBattle(true, id, pos);
+                AddUnitToBattle(true, id, false, pos);
             }
         }
 
@@ -290,16 +290,16 @@ public class Battle
 
                 Vector2 pos = new Vector2(posX, posY);
 
-                AddUnitToBattle(false, id, pos);
+                AddUnitToBattle(false, id, false, pos);
             }
         }
     }
 
-    private void AddUnitToBattle(bool _isMine, int _id, Vector2 _pos)
+    private void AddUnitToBattle(bool _isMine, int _id, bool _isBase, Vector2 _pos)
     {
         Unit unit = new Unit();
 
-        unit.Init(this, simulator, _isMine, GetUid(), _id, getUnitCallBack(_id), _pos);
+        unit.Init(this, simulator, _isMine, GetUid(), _id, _isBase, getUnitCallBack(_id), _pos);
 
         unitDic.Add(unit.uid, unit);
 
@@ -309,28 +309,20 @@ public class Battle
         {
             Dictionary<int, Unit> tmpDic;
 
-            Dictionary<int, HeroCommandData> tmpDic2;
-
             if (_isMine)
             {
                 tmpDic = mHeroPool;
-
-                tmpDic2 = mHeroCommandPool;
             }
             else
             {
                 tmpDic = oHeroPool;
-
-                tmpDic2 = oHeroCommandPool;
             }
 
             tmpDic.Add(_id, unit);
-
-            tmpDic2.Remove(_id);
         }
     }
 
-    public void Update()
+    public void Update(out bool _mWin, out bool _oWin)
     {
         MemoryStream mMs = null;
 
@@ -494,7 +486,11 @@ public class Battle
 
         UpdateSkill();//use tree
 
-        UpdateUnit();//use tree
+        _mWin = false;
+
+        _oWin = false;
+
+        UpdateUnit(ref _mWin, ref _oWin);//use tree
 
         CheckSkillEnd();//destroy tree
 
@@ -568,7 +564,32 @@ public class Battle
             oShowMoney += gameConfig.GetMoneyPerStep();
         }
 
-        roundNum++;
+        if (!isClient && (_mWin || _oWin))
+        {
+            Over();
+
+            using (MemoryStream ms = new MemoryStream())
+            {
+                using (BinaryWriter bw = new BinaryWriter(ms))
+                {
+                    bw.Write((int)S2CCommand.BATTLE_OVER);
+
+                    bw.Write(roundNum);
+
+                    bw.Write(_mWin);
+
+                    bw.Write(_oWin);
+
+                    serverSendDataCallBack(true, ms);
+
+                    serverSendDataCallBack(false, ms);
+                }
+            }
+        }
+        else
+        {
+            roundNum++;
+        }
     }
 
     private void UpdateSkill()
@@ -600,7 +621,7 @@ public class Battle
         }
     }
 
-    private void UpdateUnit()
+    private void UpdateUnit(ref bool _mWin, ref bool _oWin)
     {
         LinkedList<Unit>.Enumerator enumerator = unitList.GetEnumerator();
 
@@ -621,7 +642,19 @@ public class Battle
 
             if (!unit.IsAlive())
             {
-                unit.Die();
+                bool isBase = unit.Die();
+
+                if (isBase)
+                {
+                    if (unit.isMine)
+                    {
+                        _oWin = true;
+                    }
+                    else
+                    {
+                        _mWin = true;
+                    }
+                }
 
                 unitList.Remove(node);
 
@@ -891,11 +924,14 @@ public class Battle
 
         if (roundDiff < 0)
         {
+            bool mWin;
+            bool oWin;
+
             Log.Print("我日  服务器时间竟然比我快 myRound:" + roundNum + " serverRound:" + serverRoundNum + "  roundDiff:" + roundDiff);
 
             for (int i = 0; i < -roundDiff; i++)
             {
-                Update();
+                Update(out mWin, out oWin);
             }
 
             Log.Print("我日  我追完了  myRound:" + roundNum + "  roundDiff:" + roundDiff);
@@ -1157,9 +1193,13 @@ public class Battle
         {
             HeroCommandData command = _commandData as HeroCommandData;
 
-            AddUnitToBattle(command.isMine, command.id, command.pos);
+            AddUnitToBattle(command.isMine, command.id, false, command.pos);
 
             AddSpawnSkillToBattle(command.isMine, command.id, command.pos);
+
+            Dictionary<int, HeroCommandData> tmpDic2 = command.isMine ? mHeroCommandPool : oHeroCommandPool;
+
+            tmpDic2.Remove(command.id);
         }
         else if (_commandData is SkillCommandData)
         {
@@ -1497,6 +1537,29 @@ public class Battle
                         bool b = br.ReadBoolean();
 
                         sendCommandCallBack(b);
+
+                        break;
+
+                    case S2CCommand.BATTLE_OVER:
+
+                        int endRoundNum = br.ReadInt32();
+
+                        bool mWin = br.ReadBoolean();
+
+                        bool oWin = br.ReadBoolean();
+
+                        if (roundNum == endRoundNum)
+                        {
+                            bool tmpMWin;
+
+                            bool tmpOWin;
+
+                            Update(out tmpMWin, out tmpOWin);
+                        }
+
+                        Over();
+
+                        overCallBack(mWin, oWin);
 
                         break;
                 }

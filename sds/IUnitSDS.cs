@@ -6,15 +6,16 @@
     CONE_AREA,
 }
 
-public enum UnitTargetType
+public enum UnitType
 {
     GROUND_UNIT,
     AIR_UNIT,
-    BOTH
+    BUILDING
 }
 
 public interface IUnitSDS
 {
+    UnitType GetUnitType();
     double GetMoveSpeed();
     double GetRadius();
     int GetWeight();
@@ -24,8 +25,7 @@ public interface IUnitSDS
     double GetAttackRange();
     int GetAttackDamage();
     double GetAttackStep();
-    bool GetIsAirUnit();
-    UnitTargetType GetTargetType();
+    UnitType[] GetTargetType();
     UnitAttackType GetAttackType();
     double GetAttackTypeData();
     int GetPrize();

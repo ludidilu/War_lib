@@ -5,6 +5,9 @@
     double GetMapHeight();
     double GetSpawnX();
     double GetSpawnY();
+    double GetBaseX();
+    double GetBaseY();
+    int GetBaseID();
     double GetMaxRadius();
     double GetMapBoundFix();
     int GetMoveTimes();

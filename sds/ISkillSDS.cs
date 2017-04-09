@@ -25,7 +25,7 @@ public interface ISkillSDS
     double GetMoveSpeed();
     double GetRange();
     double GetObstacleRadius();
-    UnitTargetType GetEffectTargetType();
+    UnitType[] GetEffectTargetType();
     SkillEffectTarget GetEffectTarget();
     double GetEffectRadius();
     SkillEffect GetEffect();
