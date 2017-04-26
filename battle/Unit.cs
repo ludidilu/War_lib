@@ -222,7 +222,7 @@ public class Unit
         skillCd = skillSDS.GetCd();
     }
 
-    internal virtual void Update()
+    internal virtual void Update(bool _isClient, ref Dictionary<int, LinkedList<int>> _clientAttackData)
     {
         if (attackStep > 0)
         {
@@ -256,9 +256,7 @@ public class Unit
                     {
                         if (attackStep == 0)
                         {
-                            attackStep = sds.GetAttackStep();
-
-                            DamageTarget(targetUnit);
+                            DamageTarget(targetUnit, _isClient, ref _clientAttackData);
                         }
 
                         prefVelocity = Vector2.zero;
@@ -297,9 +295,7 @@ public class Unit
 
                 if (attackStep == 0)
                 {
-                    attackStep = sds.GetAttackStep();
-
-                    DamageTarget(targetUnit);
+                    DamageTarget(targetUnit, _isClient, ref _clientAttackData);
                 }
 
                 prefVelocity = Vector2.zero;
@@ -327,13 +323,35 @@ public class Unit
         return nowHp > 0;
     }
 
-    protected void DamageTarget(Unit _targetUnit)
+    protected void DamageTarget(Unit _targetUnit, bool _isClient, ref Dictionary<int, LinkedList<int>> _clientAttackData)
     {
+        LinkedList<int> result = null;
+
+        if (_isClient)
+        {
+            if (_clientAttackData == null)
+            {
+                _clientAttackData = new Dictionary<int, LinkedList<int>>();
+
+            }
+
+            result = new LinkedList<int>();
+
+            _clientAttackData.Add(uid, result);
+        }
+
+        attackStep = sds.GetAttackStep();
+
         switch (sds.GetAttackType())
         {
             case UnitAttackType.SINGLE:
 
                 _targetUnit.BeDamage(sds.GetAttackDamage());
+
+                if (_isClient)
+                {
+                    result.AddLast(_targetUnit.uid);
+                }
 
                 break;
 
@@ -350,6 +368,11 @@ public class Unit
                         Unit tmpUnit = battle.unitDic[tmpUid];
 
                         tmpUnit.BeDamage(sds.GetAttackDamage());
+
+                        if (_isClient)
+                        {
+                            result.AddLast(tmpUnit.uid);
+                        }
                     }
                 }
 
@@ -368,6 +391,11 @@ public class Unit
                         Unit tmpUnit = battle.unitDic[tmpUid];
 
                         tmpUnit.BeDamage(sds.GetAttackDamage());
+
+                        if (_isClient)
+                        {
+                            result.AddLast(tmpUnit.uid);
+                        }
                     }
                 }
 
@@ -398,6 +426,11 @@ public class Unit
                             if (angle - radiusAngle < sds.GetAttackTypeData())
                             {
                                 tmpUnit.BeDamage(sds.GetAttackDamage());
+
+                                if (_isClient)
+                                {
+                                    result.AddLast(tmpUnit.uid);
+                                }
                             }
                         }
                     }

@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using RVO;
+﻿using RVO;
 
 
 public class Hero : Unit
@@ -16,10 +12,5 @@ public class Hero : Unit
         castSkill = true;
 
         skillPos = _pos;
-    }
-
-    internal override void Update()
-    {
-
     }
 }

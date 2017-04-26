@@ -131,7 +131,7 @@ public class Battle
     private Action<MemoryStream> clientSendDataCallBack;
     private int serverRoundNum;
     private Dictionary<int, double> resultDic = new Dictionary<int, double>();
-    private Action updateCallBack;
+    private Action<Dictionary<int, LinkedList<int>>> updateCallBack;
     private Action<bool> sendCommandCallBack;
     private Action<bool, bool> overCallBack;
     //----
@@ -156,7 +156,7 @@ public class Battle
         InitSimulator();
     }
 
-    public void ClientInit(Action<MemoryStream> _clientSendDataCallBack, Action _updateCallBack, Action<bool> _sendCommandCallBack, Action<bool, bool> _overCallBack)
+    public void ClientInit(Action<MemoryStream> _clientSendDataCallBack, Action<Dictionary<int, LinkedList<int>>> _updateCallBack, Action<bool> _sendCommandCallBack, Action<bool, bool> _overCallBack)
     {
         isClient = true;
 
@@ -490,7 +490,9 @@ public class Battle
 
         _oWin = false;
 
-        UpdateUnit(ref _mWin, ref _oWin);//use tree
+        Dictionary<int, LinkedList<int>> clientAttackData = null;
+
+        UpdateUnit(ref _mWin, ref _oWin, ref clientAttackData);//use tree
 
         CheckSkillEnd();//destroy tree
 
@@ -539,7 +541,7 @@ public class Battle
                 resultDic.Add(roundNum, result);
             }
 
-            updateCallBack();
+            updateCallBack(clientAttackData);
         }
         else
         {
@@ -621,7 +623,7 @@ public class Battle
         }
     }
 
-    private void UpdateUnit(ref bool _mWin, ref bool _oWin)
+    private void UpdateUnit(ref bool _mWin, ref bool _oWin, ref Dictionary<int, LinkedList<int>> _clientAttackData)
     {
         LinkedList<Unit>.Enumerator enumerator = unitList.GetEnumerator();
 
@@ -629,7 +631,7 @@ public class Battle
         {
             Unit unit = enumerator.Current;
 
-            unit.Update();
+            unit.Update(isClient, ref _clientAttackData);
         }
 
         LinkedListNode<Unit> node = unitList.First;
@@ -1761,7 +1763,7 @@ public class Battle
             }
         }
 
-        updateCallBack();
+        updateCallBack(null);
     }
 
     private void ClientSendCommand(CommandData _data)
